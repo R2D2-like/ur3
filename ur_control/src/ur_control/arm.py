@@ -101,7 +101,7 @@ class Arm(object):
 
         self.ft_topic = utils.resolve_parameter(value=ft_topic, default_value=FT_SUBSCRIBER)
         self.current_ft_value = np.zeros(6)
-        self.wrench_queue = collections.deque(maxlen=25)  # store history of FT data
+        self.wrench_queue = collections.deque(maxlen=200)  # store history of FT data
 
         # self.max_joint_speed = np.deg2rad([100, 100, 100, 200, 200, 200]) # deg/s -> rad/s
         self.max_joint_speed = np.deg2rad([191, 191, 191, 371, 371, 371])

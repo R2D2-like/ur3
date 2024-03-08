@@ -8,7 +8,7 @@ from ur_control import transformations, traj_utils, conversions
 
 class Step1Pressing:
     def __init__(self):
-        rospy.init_node('/step1/pressing', anonymous=True)
+        rospy.init_node('step1_pressing', anonymous=True)
         self.arm = Arm(gripper_type=None, ee_link='wrist_3_link') # with gripper
         self.arm.set_ft_filtering()
         self.arm.zero_ft_sensor()
@@ -42,11 +42,15 @@ class Step1Pressing:
         self.pressing_data = self.arm.get_wrench_history(hist_size=200)
 
     def save_data(self):
-        self.pressing_data = np.expand_dims(self.pressing_data, axis=0)
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
         np.save(self.save_dir + self.save_name + '.npy', self.pressing_data) # (200, 6)
         rospy.loginfo('Data saved')
+
+    def going_up(self):
+        self.move_endeffector([0, 0, -0.025, 0, 0, 0], target_time=2)
+
+
 
 
 if __name__ == '__main__':
@@ -63,6 +67,8 @@ if __name__ == '__main__':
     rospy.loginfo('start step1 pressing')
     step1_pressing.pressing()
     step1_pressing.save_data()
+    step1_pressing.going_up()
+    print(step1_pressing.pressing_data)
     rospy.loginfo('Step 1 pressing completed')
 
         

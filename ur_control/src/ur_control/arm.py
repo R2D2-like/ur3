@@ -101,7 +101,7 @@ class Arm(object):
 
         self.ft_topic = utils.resolve_parameter(value=ft_topic, default_value=FT_SUBSCRIBER)
         self.current_ft_value = np.zeros(6)
-        self.wrench_queue = collections.deque(maxlen=200)  # store history of FT data
+        self.wrench_queue = collections.deque(maxlen=20000)  # store history of FT data
 
         # self.max_joint_speed = np.deg2rad([100, 100, 100, 200, 200, 200]) # deg/s -> rad/s
         self.max_joint_speed = np.deg2rad([191, 191, 191, 371, 371, 371])
@@ -117,6 +117,8 @@ class Arm(object):
 
         self.controller_manager = ControllersConnection(self.ns)
         self.dashboard_services = URServices(self.ns)
+
+        self.last_wrench_cb_time = None
 
 ### private methods ###
 
@@ -194,8 +196,12 @@ class Arm(object):
                 rospy.logerr('Timed out waiting for {0} topic'.format(ft_namespace))
 
     def __ft_callback__(self, msg):
-        self.current_ft_value = conversions.from_wrench(msg.wrench)
-        self.wrench_queue.append(self.current_ft_value)
+        if self.last_wrench_cb_time is None:
+            self.last_wrench_cb_time = rospy.Time.now()
+        elif rospy.Time.now() - self.last_wrench_cb_time >= rospy.Duration(0.01):
+            self.last_wrench_cb_time = rospy.Time.now()
+            self.current_ft_value = conversions.from_wrench(msg.wrench)
+            self.wrench_queue.append(self.current_ft_value)
 
 ### Data access methods ###
 

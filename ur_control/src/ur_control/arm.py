@@ -88,6 +88,7 @@ class Arm(object):
         """
 
         self.ns = utils.solve_namespace(namespace)
+        self.last_wrench_cb_time = None
 
         base_link = utils.resolve_parameter(value=base_link, default_value=BASE_LINK)
         ee_link = utils.resolve_parameter(value=ee_link, default_value=EE_LINK)
@@ -118,7 +119,6 @@ class Arm(object):
         self.controller_manager = ControllersConnection(self.ns)
         self.dashboard_services = URServices(self.ns)
 
-        self.last_wrench_cb_time = None
 
 ### private methods ###
 

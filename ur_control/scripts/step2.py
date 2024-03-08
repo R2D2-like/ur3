@@ -21,11 +21,13 @@ class Step2:
             else:
                 self.data = np.vstack((self.data, self.arm.end_effector()))
             if self.data.shape[0] >= 2000:
+                ft_data = self.arm.get_wrench_history(hist_size=2000)
                 break
             rate.sleep()
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
-        np.save(self.save_dir + self.save_name, self.data)
+        np.save(self.save_dir + self.save_name + '_traj.npy', self.data) # (2000, 3)
+        np.save(self.save_dir + self.save_name + '_traj_ft.npy', np.concatenate((self.data, ft_data), axis=1)) # (2000, 9)
         rospy.loginfo('Data saved')
 
 if __name__ == '__main__':

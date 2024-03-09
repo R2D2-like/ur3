@@ -88,6 +88,7 @@ class Arm(object):
         """
 
         self.ns = utils.solve_namespace(namespace)
+        self.last_wrench_cb_time = None
 
         base_link = utils.resolve_parameter(value=base_link, default_value=BASE_LINK)
         ee_link = utils.resolve_parameter(value=ee_link, default_value=EE_LINK)
@@ -118,7 +119,6 @@ class Arm(object):
         self.controller_manager = ControllersConnection(self.ns)
         self.dashboard_services = URServices(self.ns)
 
-        self.last_wrench_cb_time = None
 
 ### private methods ###
 
@@ -201,7 +201,7 @@ class Arm(object):
         elif rospy.Time.now() - self.last_wrench_cb_time >= rospy.Duration(0.01):
             self.last_wrench_cb_time = rospy.Time.now()
             self.current_ft_value = conversions.from_wrench(msg.wrench)
-            self.wrench_queue.append(self.current_ft_value)
+            self.wrench_queue.appendleft(self.current_ft_value)
 
 ### Data access methods ###
 
@@ -346,7 +346,7 @@ class Arm(object):
         if self.current_ft_value is None:
             raise Exception("FT Sensor not initialized")
 
-        ft_hist = np.array(self.wrench_queue)[:hist_size]
+        ft_hist = np.array(self.wrench_queue)[:hist_size][::-1]
 
         if hand_frame_control:
             q_hist = self.joint_traj_controller.get_joint_positions_hist()[:hist_size]

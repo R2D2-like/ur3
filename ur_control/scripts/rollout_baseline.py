@@ -72,7 +72,7 @@ class RolloutBaseline:
 
         traj_history = self.eef_pose_history[-2000:] # (2000, 7)
         ft_history = self.arm.get_wrench_history(hist_size=2000) # (2000, 6)
-        save_dir = self.base_save_dir + 'result/' 
+        save_dir = self.base_save_dir + 'result/baseline/' 
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         save_path = save_dir + self.sponge + '.npz'

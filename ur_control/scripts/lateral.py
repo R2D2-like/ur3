@@ -14,15 +14,18 @@ class Lateral:
         self.arm.zero_ft_sensor()
         self.lateral_movements_data = None
         mode = input('0:step1, 1:rollout: ')
-        if mode == '0':
-            self.save_dir = '/root/Research_Internship_at_GVlab/real/step1/data/lateral/'
-        else:
-            self.save_dir = '/root/Research_Internship_at_GVlab/real/rollout/data/exploratory/lateral/'
         stiffness = input('stiffness level (1, 2, 3, 4): ')
         friction = input('friction level (1, 2, 3): ')
         self.sponge = 's' + stiffness + 'f' + friction
-        self.trial = input('Trial (1, 2, 3, 4, 5, 6, 7, 8): ')
         rospy.loginfo(self.sponge)
+        if mode == '0':
+            self.save_dir = '/root/Research_Internship_at_GVlab/real/step1/data/lateral/'
+            trial = input('Trial (1, 2, 3, 4, 5, 6, 7, 8): ')
+            self.save_path = self.save_dir + self.sponge + '_' + trial + '.npz'
+        else:
+            self.save_dir = '/root/Research_Internship_at_GVlab/real/rollout/data/exploratory/lateral/'
+            self.save_path = self.save_dir + self.sponge + '.npz'
+
         rospy.loginfo('Lateral node initialized')
         input('Press Enter to start!')
         rospy.loginfo('Start Lateral...')
@@ -60,8 +63,8 @@ class Lateral:
         kwargs = {self.sponge: self.lateral_movements_data}
 
         # 辞書をアンパックしてnp.savezに渡す
-        np.savez(self.save_dir + self.sponge + '_' + self.trial + '.npz', **kwargs) # (200, 6)
-        rospy.loginfo('Data saved at\n' + self.save_dir + self.sponge + '_' + self.trial + '.npz')
+        np.savez(self.save_path, **kwargs) # (200, 6)
+        rospy.loginfo('Data saved at\n' + self.save_path)
 
 
 if __name__ == '__main__':

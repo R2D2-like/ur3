@@ -21,7 +21,7 @@ class Step2:
         stiffness = input('stiffness level (1, 2, 3, 4): ')
         friction = input('friction level (1, 2, 3): ')
         self.save_name = 's' + stiffness + 'f' + friction
-        self.trial = input('Trial (1, 2, 3, 4, 5, 6): ')
+        self.trial = input('Trial (1, 2, 3, 4, 5, 6, 7, 8): ')
         rospy.loginfo('Step2 node initialized')
         input('Press Enter to start!')
         rospy.loginfo('Start Recording...')

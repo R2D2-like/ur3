@@ -6,9 +6,9 @@ import os
 from ur_control import transformations, traj_utils, conversions
 
 
-class Step1Lateral:
+class Lateral:
     def __init__(self):
-        rospy.init_node('/step1/lateral', anonymous=True)
+        rospy.init_node('lateral', anonymous=True)
         self.arm = Arm(gripper_type=None, ee_link='wrist_3_link') # with gripper
         self.arm.set_ft_filtering()
         self.arm.zero_ft_sensor()
@@ -18,8 +18,11 @@ class Step1Lateral:
             self.save_dir = '/root/Research_Internship_at_GVlab/real/step1/data/lateral/'
         else:
             self.save_dir = '/root/Research_Internship_at_GVlab/real/rollout/data/exploratory/lateral/'
-        self.save_name = input('Enter the name of the save file: ')
-        rospy.loginfo('Step1 lateral node initialized')
+        stiffness = input('stiffness level (0, 1, 2, 3): ')
+        friction = input('friction level (0, 1, 2): ')
+        self.save_name = 's' + stiffness + 'f' + friction
+        rospy.loginfo(self.save_name)
+        rospy.loginfo('Lateral node initialized')
 
     def move_endeffector(self, deltax, target_time):
         # get current position of the end effector
@@ -47,7 +50,11 @@ class Step1Lateral:
     def save_data(self):
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
-        np.save(self.save_dir + self.save_name + '.npy', self.lateral_movements_data) # (200, 6)
+        # キーワード引数を辞書として定義
+        kwargs = {self.save_name: self.lateral_movements_data}
+
+        # 辞書をアンパックしてnp.savezに渡す
+        np.savez(self.save_dir + self.save_name + '.npz', **kwargs) # (200, 6)
         rospy.loginfo('Data saved')
 
 
@@ -59,12 +66,12 @@ if __name__ == '__main__':
     else:
         rospy.loginfo('This is a real robot')
         is_sim = False
-    step1_lateral = Step1Lateral()
+    lateral = Lateral()
     if is_sim:
-        step1_lateral.go_to_initial_pose()
-    rospy.loginfo('start step1 lateral')
-    step1_lateral.lateral_movements()
-    step1_lateral.save_data()
-    rospy.loginfo('Step 1 lateral completed')
+        lateral.go_to_initial_pose()
+    rospy.loginfo('start lateral')
+    lateral.lateral_movements()
+    lateral.save_data()
+    rospy.loginfo('Lateral completed')
 
         

@@ -52,7 +52,7 @@ class Pressing:
         kwargs = {self.save_name: self.pressing_data}
 
         # 辞書をアンパックしてnp.savezに渡す
-        np.savez(self.save_dir + self.save_name + '.npz', **kwargs)
+        np.savez(self.save_dir + self.save_name + '.npz', **kwargs) # (200, 6)
         rospy.loginfo('Data saved')
 
     def going_up(self):

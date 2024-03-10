@@ -20,8 +20,9 @@ class Pressing:
             self.save_dir = '/root/Research_Internship_at_GVlab/real/rollout/data/exploratory/pressing/'
         stiffness = input('stiffness level (1, 2, 3, 4): ')
         friction = input('friction level (1, 2, 3): ')
-        self.save_name = 's' + stiffness + 'f' + friction
-        rospy.loginfo(self.save_name)
+        self.sponge = 's' + stiffness + 'f' + friction
+        self.trial = input('Trial (1, 2, 3, 4, 5, 6, 7, 8): ')
+        rospy.loginfo(self.sponge)
         rospy.loginfo('Pressing node initialized')
         input('Press Enter to start!')
         rospy.loginfo('Start Pressing...')
@@ -50,12 +51,14 @@ class Pressing:
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
 
+        print('data shape: ', self.pressing_data.shape)
+
         # キーワード引数を辞書として定義
-        kwargs = {self.save_name: self.pressing_data}
+        kwargs = {self.sponge: self.pressing_data}
 
         # 辞書をアンパックしてnp.savezに渡す
-        np.savez(self.save_dir + self.save_name + '.npz', **kwargs) # (200, 6)
-        rospy.loginfo('Data saved')
+        np.savez(self.save_dir + self.sponge + '_' + self.trial + '.npz', **kwargs) # (200, 6)
+        rospy.loginfo('Data saved at\n' + self.save_dir + self.sponge + '_' + self.trial + '.npz')
 
     def going_up(self):
         self.move_endeffector([0, 0, -0.025, 0, 0, 0], target_time=2)
@@ -77,7 +80,6 @@ if __name__ == '__main__':
     pressing.pressing()
     pressing.save_data()
     pressing.going_up()
-    print('data shape: ', pressing.pressing_data.shape)
     rospy.loginfo('Pressing completed')
 
         

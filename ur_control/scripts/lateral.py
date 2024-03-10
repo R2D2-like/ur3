@@ -20,8 +20,9 @@ class Lateral:
             self.save_dir = '/root/Research_Internship_at_GVlab/real/rollout/data/exploratory/lateral/'
         stiffness = input('stiffness level (1, 2, 3, 4): ')
         friction = input('friction level (1, 2, 3): ')
-        self.save_name = 's' + stiffness + 'f' + friction
-        rospy.loginfo(self.save_name)
+        self.sponge = 's' + stiffness + 'f' + friction
+        self.trial = input('Trial (1, 2, 3, 4, 5, 6, 7, 8): ')
+        rospy.loginfo(self.sponge)
         rospy.loginfo('Lateral node initialized')
         input('Press Enter to start!')
         rospy.loginfo('Start Lateral...')
@@ -52,12 +53,15 @@ class Lateral:
     def save_data(self):
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
+
+        print('data shape: ', self.lateral_movements_data.shape)
+
         # キーワード引数を辞書として定義
-        kwargs = {self.save_name: self.lateral_movements_data}
+        kwargs = {self.sponge: self.lateral_movements_data}
 
         # 辞書をアンパックしてnp.savezに渡す
-        np.savez(self.save_dir + self.save_name + '.npz', **kwargs) # (200, 6)
-        rospy.loginfo('Data saved')
+        np.savez(self.save_dir + self.sponge + '_' + self.trial + '.npz', **kwargs) # (200, 6)
+        rospy.loginfo('Data saved at\n' + self.save_dir + self.sponge + '_' + self.trial + '.npz')
 
 
 if __name__ == '__main__':
@@ -73,7 +77,6 @@ if __name__ == '__main__':
         lateral.go_to_initial_pose()
     lateral.lateral_movements()
     lateral.save_data()
-    print('data shape: ', lateral.lateral_movements_data.shape)
     rospy.loginfo('Lateral completed')
 
         

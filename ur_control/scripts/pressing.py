@@ -13,7 +13,7 @@ class Pressing:
         self.arm.set_ft_filtering()
         self.arm.zero_ft_sensor()
         self.pressing_data = None
-        mode = input('0:collecting data, 1:rollout: ')
+        mode = input('0:step1, 1:rollout: ')
         if mode == '0':
             self.save_dir = '/root/Research_Internship_at_GVlab/real/step1/data/pressing/'
         else:

@@ -13,7 +13,7 @@ class Lateral:
         self.arm.set_ft_filtering()
         self.arm.zero_ft_sensor()
         self.lateral_movements_data = None
-        mode = input('0:collecting data, 1:rollout: ')
+        mode = input('0:step1, 1:rollout: ')
         if mode == '0':
             self.save_dir = '/root/Research_Internship_at_GVlab/real/step1/data/lateral/'
         else:

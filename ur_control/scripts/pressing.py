@@ -18,11 +18,13 @@ class Pressing:
             self.save_dir = '/root/Research_Internship_at_GVlab/real/step1/data/pressing/'
         else:
             self.save_dir = '/root/Research_Internship_at_GVlab/real/rollout/data/exploratory/pressing/'
-        stiffness = input('stiffness level (0, 1, 2, 3): ')
-        friction = input('friction level (0, 1, 2): ')
+        stiffness = input('stiffness level (1, 2, 3, 4): ')
+        friction = input('friction level (1, 2, 3): ')
         self.save_name = 's' + stiffness + 'f' + friction
         rospy.loginfo(self.save_name)
         rospy.loginfo('Pressing node initialized')
+        input('Press Enter to start!')
+        rospy.loginfo('Start Pressing...')
 
     def move_endeffector(self, deltax, target_time):
         # get current position of the end effector
@@ -72,11 +74,10 @@ if __name__ == '__main__':
     pressing = Pressing()
     if is_sim:
         pressing.go_to_initial_pose()
-    rospy.loginfo('start pressing')
     pressing.pressing()
     pressing.save_data()
     pressing.going_up()
-    print(pressing.pressing_data)
+    print('data shape: ', pressing.pressing_data.shape)
     rospy.loginfo('Pressing completed')
 
         

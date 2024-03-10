@@ -18,11 +18,13 @@ class Lateral:
             self.save_dir = '/root/Research_Internship_at_GVlab/real/step1/data/lateral/'
         else:
             self.save_dir = '/root/Research_Internship_at_GVlab/real/rollout/data/exploratory/lateral/'
-        stiffness = input('stiffness level (0, 1, 2, 3): ')
-        friction = input('friction level (0, 1, 2): ')
+        stiffness = input('stiffness level (1, 2, 3, 4): ')
+        friction = input('friction level (1, 2, 3): ')
         self.save_name = 's' + stiffness + 'f' + friction
         rospy.loginfo(self.save_name)
         rospy.loginfo('Lateral node initialized')
+        input('Press Enter to start!')
+        rospy.loginfo('Start Lateral...')
 
     def move_endeffector(self, deltax, target_time):
         # get current position of the end effector
@@ -69,9 +71,9 @@ if __name__ == '__main__':
     lateral = Lateral()
     if is_sim:
         lateral.go_to_initial_pose()
-    rospy.loginfo('start lateral')
     lateral.lateral_movements()
     lateral.save_data()
+    print('data shape: ', lateral.lateral_movements_data.shape)
     rospy.loginfo('Lateral completed')
 
         

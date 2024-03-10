@@ -6,9 +6,9 @@ import os
 from ur_control import transformations, traj_utils, conversions
 
 
-class Step1Pressing:
+class Pressing:
     def __init__(self):
-        rospy.init_node('step1_pressing', anonymous=True)
+        rospy.init_node('pressing', anonymous=True)
         self.arm = Arm(gripper_type=None, ee_link='wrist_3_link') # with gripper
         self.arm.set_ft_filtering()
         self.arm.zero_ft_sensor()
@@ -18,8 +18,11 @@ class Step1Pressing:
             self.save_dir = '/root/Research_Internship_at_GVlab/real/step1/data/pressing/'
         else:
             self.save_dir = '/root/Research_Internship_at_GVlab/real/rollout/data/exploratory/pressing/'
-        self.save_name = input('Enter the name of the save file: ')
-        rospy.loginfo('Step1 pressing node initialized')
+        stiffness = input('stiffness level (0, 1, 2, 3): ')
+        friction = input('friction level (0, 1, 2): ')
+        self.save_name = 's' + stiffness + 'f' + friction
+        rospy.loginfo(self.save_name)
+        rospy.loginfo('Pressing node initialized')
 
     def move_endeffector(self, deltax, target_time):
         # get current position of the end effector
@@ -44,7 +47,12 @@ class Step1Pressing:
     def save_data(self):
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
-        np.save(self.save_dir + self.save_name + '.npy', self.pressing_data) # (200, 6)
+
+        # キーワード引数を辞書として定義
+        kwargs = {self.save_name: self.pressing_data}
+
+        # 辞書をアンパックしてnp.savezに渡す
+        np.savez(self.save_dir + self.save_name + '.npz', **kwargs)
         rospy.loginfo('Data saved')
 
     def going_up(self):
@@ -61,14 +69,14 @@ if __name__ == '__main__':
     else:
         rospy.loginfo('This is a real robot')
         is_sim = False
-    step1_pressing = Step1Pressing()
+    pressing = Pressing()
     if is_sim:
-        step1_pressing.go_to_initial_pose()
-    rospy.loginfo('start step1 pressing')
-    step1_pressing.pressing()
-    step1_pressing.save_data()
-    step1_pressing.going_up()
-    print(step1_pressing.pressing_data)
-    rospy.loginfo('Step 1 pressing completed')
+        pressing.go_to_initial_pose()
+    rospy.loginfo('start pressing')
+    pressing.pressing()
+    pressing.save_data()
+    pressing.going_up()
+    print(pressing.pressing_data)
+    rospy.loginfo('Pressing completed')
 
         

@@ -6,9 +6,12 @@ import os
 import sys
 # add /root/Research_Internship_at_GVlab/scripts/config
 sys.path.append('/root/Research_Internship_at_GVlab/scripts/config')
-from config import SCALING_FACTOR, DEMO_TRAJECTORY_MIN, DEMO_TRAJECTORY_MAX
+from values import SCALING_FACTOR, DEMO_TRAJECTORY_MIN, DEMO_TRAJECTORY_MAX
 import torch
 from geometry_msgs.msg import Pose
+sys.path.append('/root/Research_Internship_at_GVlab/scripts/train/')
+from lfd_baseline import LfDBaseline
+
 
 class RolloutBaseline:
     def __init__(self) -> None:
@@ -35,32 +38,58 @@ class RolloutBaseline:
         # 正規化された出力をもとの値に戻す
         # normalized_output = np.load(self.base_dir + self.save_name) #(2000, 3)
         normalized_output /= SCALING_FACTOR
-        output = normalized_output * (DEMO_TRAJECTORY_MAX - DEMO_TRAJECTORY_MIN) + DEMO_TRAJECTORY_MIN
+        output = normalized_output * (np.array(DEMO_TRAJECTORY_MAX) - np.array(DEMO_TRAJECTORY_MIN)) + np.array(DEMO_TRAJECTORY_MIN)
         return output
     
+    # def predict_eef_position(self):
+    #     # load data
+    #     data = np.load(self.base_dir + 'rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge] # normalized
+    #     # load model
+    #     model_weights_path = self.base_dir + 'model/baseline/baseline_model.pth'
+    #     model = torch.load(model_weights_path)
+    #     model.eval()
+    #     # inference
+    #     output = model(torch.tensor(data))
+    #     output = output.detach().numpy()
+    #     eef_position = self.output2position(output)
+    #     save_dir = self.base_save_dir + 'predicted/'
+    #     if not os.path.exists(save_dir):
+    #         os.makedirs(save_dir)
+    #     np.savez(save_dir + self.sponge + '.npz', eef_position=eef_position)
+    #     print('Data saved at\n: ', save_dir + self.sponge + '.npz')
+    #     rospy.loginfo('Inference completed')
+    #     return eef_position #(2000, 3)
+    
     def predict_eef_position(self):
+        #device
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # load data
-        data = np.load(self.base_dir + 'rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge] # normalized
-        # load model
+        data = np.load(self.base_dir + 'rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge]  # normalized
+        # instantiate the model
+        model = LfDBaseline(input_dim=6, output_dim=3, latent_dim=5, hidden_dim=32).to(device)
+        # load model weights
         model_weights_path = self.base_dir + 'model/baseline/baseline_model.pth'
-        model = torch.load(model_weights_path)
-        model.eval()
+        state_dict = torch.load(model_weights_path)
+        model.load_state_dict(state_dict, strict=False)  # Load the state dict
+        model.eval()  # Now this should work as model is properly instantiated
         # inference
-        output = model(torch.tensor(data))
-        output = output.detach().numpy()
+        output = model(torch.tensor(data).float().to(device))  # Ensure data is in the correct dtype for the model
+        output = output.detach().cpu().numpy()
         eef_position = self.output2position(output)
-        save_dir = self.base_save_dir + 'predicted/'
+        save_dir = self.base_save_dir + 'baseline/predicted/'
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        np.savez(save_dir + self.sponge + '.npz', eef_position=eef_position)
+        np.savez(save_dir + self.sponge + '.npz', pose=eef_position)
         print('Data saved at\n: ', save_dir + self.sponge + '.npz')
         rospy.loginfo('Inference completed')
-        return eef_position #(2000, 3)
+        return eef_position[0]  # (2000, 3)
 
     def rollout(self):
         ee_position = self.predict_eef_position() #(2000, 3)
+        print(ee_position.shape)
         target_time = 0.01
         for i in range(ee_position.shape[0]):
+            print(i)
             pose_goal = self.arm.end_effector()
             pose_goal[0] = ee_position[i, 0]
             pose_goal[1] = ee_position[i, 1]

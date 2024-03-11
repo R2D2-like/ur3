@@ -66,10 +66,10 @@ class ExploratoryAction:
         rospy.loginfo('Data saved at\n' + save_path)
 
     def lateral_movements(self):
-        self.move_endeffector([-0.05, 0, -0.001, 0, 0, 0], target_time=1)
+        self.move_endeffector([-0.05, -0.015, -0.001, 0, 0, 0], target_time=1)
         self.lateral_movements_data = self.arm.get_wrench_history(hist_size=100)
         rospy.sleep(1)
-        self.move_endeffector([0.05, 0, 0.001, 0, 0, 0], target_time=1)
+        self.move_endeffector([0.05, 0.015, 0.001, 0, 0, 0], target_time=1)
 
         self.lateral_movements_data = np.concatenate((self.lateral_movements_data, self.arm.get_wrench_history(hist_size=100))) 
 

@@ -112,6 +112,6 @@ if __name__ == '__main__':
     input('Press Enter to start lateral movements')
     exp.lateral_movements()
     exp.save_lateral_data()
-    rospy.loginfo('Pressing completed')
+    rospy.loginfo('Exploratory actions completed')
 
         

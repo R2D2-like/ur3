@@ -41,25 +41,6 @@ class RolloutBaseline:
         output = normalized_output * (np.array(DEMO_TRAJECTORY_MAX) - np.array(DEMO_TRAJECTORY_MIN)) + np.array(DEMO_TRAJECTORY_MIN)
         return output
     
-    # def predict_eef_position(self):
-    #     # load data
-    #     data = np.load(self.base_dir + 'rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge] # normalized
-    #     # load model
-    #     model_weights_path = self.base_dir + 'model/baseline/baseline_model.pth'
-    #     model = torch.load(model_weights_path)
-    #     model.eval()
-    #     # inference
-    #     output = model(torch.tensor(data))
-    #     output = output.detach().numpy()
-    #     eef_position = self.output2position(output)
-    #     save_dir = self.base_save_dir + 'predicted/'
-    #     if not os.path.exists(save_dir):
-    #         os.makedirs(save_dir)
-    #     np.savez(save_dir + self.sponge + '.npz', eef_position=eef_position)
-    #     print('Data saved at\n: ', save_dir + self.sponge + '.npz')
-    #     rospy.loginfo('Inference completed')
-    #     return eef_position #(2000, 3)
-    
     def predict_eef_position(self):
         #device
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -79,7 +60,7 @@ class RolloutBaseline:
         save_dir = self.base_save_dir + 'baseline/predicted/'
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        np.savez(save_dir + self.sponge + '.npz', pose=eef_position)
+        np.savez(save_dir + self.sponge + '.npz', eef_position=eef_position)
         print('Data saved at\n: ', save_dir + self.sponge + '.npz')
         rospy.loginfo('Inference completed')
         return eef_position[0]  # (2000, 3)
@@ -101,7 +82,7 @@ class RolloutBaseline:
 
         traj_history = self.eef_pose_history[-2000:] # (2000, 7)
         ft_history = self.arm.get_wrench_history(hist_size=2000) # (2000, 6)
-        save_dir = self.base_save_dir + 'result/baseline/' 
+        save_dir = self.base_save_dir + 'baseline/result/' 
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         save_path = save_dir + self.sponge + '.npz'

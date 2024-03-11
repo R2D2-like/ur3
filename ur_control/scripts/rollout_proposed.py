@@ -9,7 +9,7 @@ sys.path.append('/root/Research_Internship_at_GVlab/scripts/config')
 from values import SCALING_FACTOR, DEMO_TRAJECTORY_MIN, DEMO_TRAJECTORY_MAX, DEMO_FORCE_TORQUE_MIN, DEMO_FORCE_TORQUE_MAX
 import torch
 sys.path.append('/root/Research_Internship_at_GVlab/scripts/train/')
-from lfd_proposed import LfdProposed
+from lfd_proposed import LfDProposed
 from ur_control import transformations
 from geometry_msgs.msg import Pose
 
@@ -17,6 +17,7 @@ class RolloutProposed:
     def __init__(self) -> None:
         rospy.init_node('rollout', anonymous=True)
         self.arm = Arm(gripper_type=None, ee_link='wrist_3_link') # with gripper
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # Subscriber
         self.sub_eef_pose = rospy.Subscriber('/eef_pose', Pose, self.eef_pose_callback)
@@ -31,7 +32,7 @@ class RolloutProposed:
         self.vae_inputs = np.load(self.base_dir + 'rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge] # normalized
 
         model_weights_path = self.base_dir + 'model/proposed/proposed_model.pth'
-        self.lfd = LfdProposed()
+        self.lfd = LfDProposed().to(self.device)
         self.lfd.load_state_dict(torch.load(model_weights_path))
         self.lfd.eval()
         rospy.loginfo('Rollout node initialized')
@@ -61,24 +62,25 @@ class RolloutProposed:
         # 正規化された出力をもとの値に戻す
         # normalized_output = np.load(self.base_dir + self.save_name) #(2000, 3)
         normalized_output /= SCALING_FACTOR
-        output = normalized_output * (DEMO_TRAJECTORY_MAX - DEMO_TRAJECTORY_MIN) + DEMO_TRAJECTORY_MIN
+        output = normalized_output * (np.array(DEMO_TRAJECTORY_MAX) - np.array(DEMO_TRAJECTORY_MIN)) + np.array(DEMO_TRAJECTORY_MIN)
         return output
     
     def position2input(self, position):
         # 位置をモデルの入力に変換
-        input = (position - DEMO_TRAJECTORY_MIN) / (DEMO_TRAJECTORY_MAX - DEMO_TRAJECTORY_MIN)
+        print(np.array(position).shape, np.array(DEMO_TRAJECTORY_MIN)[:3].shape)
+        input = (np.array(position) - np.array(DEMO_TRAJECTORY_MIN)[:3]) / (np.array(DEMO_TRAJECTORY_MAX)[:3] - np.array(DEMO_TRAJECTORY_MIN)[:3])
         input *= SCALING_FACTOR
         return input
     
     def ft2input(self, ft):
         # 力覚センサの値をモデルの入力に変換
-        input = (ft - DEMO_FORCE_TORQUE_MIN) / (DEMO_FORCE_TORQUE_MAX - DEMO_FORCE_TORQUE_MIN)
+        input = (ft - np.array(DEMO_FORCE_TORQUE_MIN)) / (np.array(DEMO_FORCE_TORQUE_MAX) - np.array(DEMO_FORCE_TORQUE_MIN))
         return input
     
     def predict(self, vae_inputs, tcn_inputs):
         # inference
         output = self.lfd(vae_inputs, tcn_inputs)
-        output = output.detach().numpy()
+        output = output.detach().cpu().numpy()
         eef_position = self.output2position(output)
         return eef_position
 
@@ -87,15 +89,18 @@ class RolloutProposed:
         start_time = rospy.Time.now()
         # initialize motion
         self.init_pressing()
+        pred_eef_position_history = []
 
         while (rospy.Time.now() - start_time).to_sec() < 20:
             ft_history = self.arm.get_wrench_history(hist_size=100)
             ft_history = self.ft2input(ft_history) # (100, 6)
-            eef_position_history = self.position2input(self.eef_pose_history[-100:][:3]) # (100, 3)
+            eef_position_history = self.position2input(np.array(self.eef_pose_history[-100:])[:,:3]) # (100, 3) #np.array(a[:-3])[:,:3]
             tcn_inputs = np.concatenate([ft_history, eef_position_history], axis=1) # (100, 9)
             # (100, 9) -> (9, 100)
-            tcn_inputs = tcn_inputs.T
-            next_eef_position = self.predict(self.vae_inputs, tcn_inputs)
+            tcn_inputs = np.expand_dims(tcn_inputs.T, axis=0)
+            print(self.vae_inputs.shape, tcn_inputs.shape)
+            next_eef_position = self.predict(torch.tensor(self.vae_inputs).float().to(self.device), torch.tensor(tcn_inputs).float().to(self.device))
+            pred_eef_position_history.append(next_eef_position)
             
             target_time = 0.01
 
@@ -110,9 +115,17 @@ class RolloutProposed:
                     print(e)
 
         # save data
+        pred_history = next_eef_position[-2000:]
+        save_dir = self.base_save_dir + 'proposed/predicted/'
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        save_path = save_dir + self.sponge + '.npz'
+        np.savez(save_path, eef_position=pred_history)
+        rospy.loginfo('Data saved at\n' + save_path)
+
         traj_history = self.eef_pose_history[-2000:] # (2000, 7)
         ft_history = self.arm.get_wrench_history(hist_size=2000) # (2000, 6)
-        save_dir = self.base_save_dir + 'result/proposed/'
+        save_dir = self.base_save_dir + 'proposed/results/'
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         save_path = save_dir + self.sponge + '.npz'

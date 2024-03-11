@@ -47,10 +47,11 @@ class Lateral:
 
     def lateral_movements(self):
         self.arm.zero_ft_sensor()
-        self.move_endeffector([0.05, 0, 0, 0, 0, 0], target_time=1)
+        self.move_endeffector([-0.05, 0, -0.001, 0, 0, 0], target_time=1)
         self.lateral_movements_data = self.arm.get_wrench_history(hist_size=100)
         rospy.sleep(1)
-        self.move_endeffector([-0.05, 0, 0, 0, 0, 0], target_time=1)
+        self.move_endeffector([0.05, 0, 0.001, 0, 0, 0], target_time=1)
+
         self.lateral_movements_data = np.concatenate((self.lateral_movements_data, self.arm.get_wrench_history(hist_size=100))) 
 
     def save_data(self):

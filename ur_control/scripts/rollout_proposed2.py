@@ -113,9 +113,9 @@ class RolloutProposed:
         # initialize motion
         self.init_pressing()
         pred_eef_position_history = []
-        self.eef_pose_history[:,len(self.init_eef_position_history):] = self.init_eef_position_history
-        ft_history = np.zeros_like(6, 2000)
-        ft_history[:,len(self.init_ft_history):] = self.init_ft_history
+        # self.eef_pose_history[:,len(self.init_eef_position_history):] = self.init_eef_position_history
+        # ft_history = np.zeros_like(6, 2000)
+        # ft_history[:,len(self.init_ft_history):] = self.init_ft_history
 
 
 

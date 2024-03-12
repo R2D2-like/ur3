@@ -67,8 +67,8 @@ class RolloutBaseline:
     def rollout(self):
         ee_position = self.predict_eef_position() #(2000, 3)
         print(ee_position.shape)
-        target_time = 0.01
-        for i in range(ee_position.shape[0]):
+        target_time = 0.05
+        for i in range(1500, 2000):
             print(i)
             pose_goal = self.arm.end_effector()
             pose_goal[0] = ee_position[i, 0]

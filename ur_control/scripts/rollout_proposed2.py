@@ -13,6 +13,7 @@ from lfd_proposed import LfDProposed
 from ur_control import transformations
 from geometry_msgs.msg import Pose
 from geometry_msgs.msg import WrenchStamped
+import collections
 
 
 class RolloutProposed:
@@ -25,7 +26,13 @@ class RolloutProposed:
         self.sub_eef_pose = rospy.Subscriber('/eef_pose', Pose, self.eef_pose_callback)
         self.sub_ft = rospy.Subscriber('/wrench/filtered', WrenchStamped, self.ft_callback)
 
-        self.eef_pose_history = np.zeros_like(7, 2000)
+        # first in first out
+        self.eef_pose_history = collections.deque(maxlen=2000)
+        self.ft_history = collections.deque(maxlen=2000)
+        # 0で初期化
+        self.eef_pose_history.extend(np.zeros((2000, 7))) # (2000, 7)
+        self.ft_history.extend(np.zeros((2000, 6))) # (2000, 6)
+
         self.init_eef_position_history = []
         self.init_ft_history = []
 
@@ -46,12 +53,12 @@ class RolloutProposed:
     def eef_pose_callback(self, msg):
         self.current_pos = np.array([msg.position.x, msg.position.y, msg.position.z, \
                                 msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w])
-        self.init_eef_position_history.append(self.current_pos)
+        self.eef_pose_history.append(self.current_pos) # (7, 2000)
 
-    def eef_pose_callback(self, msg):
+    def eef_ft_callback(self, msg):
         self.current_ft = np.array([msg.force.x, msg.force.y, msg.force.z, \
                                 msg.torque.x, msg.torque.y, msg.torque.z])
-        self.init_ft_history.append(self.current_ft)
+        self.ft_history.append(self.current_ft) # (6, 2000)
 
 
     def move_endeffector(self, deltax, target_time):
@@ -113,10 +120,11 @@ class RolloutProposed:
 
 
         while (rospy.Time.now() - start_time).to_sec() < 20:
-            ft_history = self.arm.get_wrench_history(hist_size=100)
-            ft_history = self.ft2input(ft_history) # (100, 6)
-            eef_position_history = self.position2input(np.array(self.eef_pose_history[-100:])[:,:3]) # (100, 3) #np.array(a[:-3])[:,:3]
-            tcn_inputs = np.concatenate([eef_position_history, ft_history], axis=1) # (100, 8)
+            ft_history = np.array(self.ft_history) # (2000, 6)
+            eef_position_history = np.array(self.eef_pose_history)[:,:3] # (2000, 3)
+            ft_history = self.ft2input(ft_history) # (2000, 6)
+            eef_position_history = self.position2input(eef_position_history) # (2000, 2) #np.array(a[:-3])[:,:3]
+            tcn_inputs = np.concatenate([eef_position_history, ft_history], axis=1) # (2000, 8)
             # (100, 9) -> (9, 100)
             tcn_inputs = np.expand_dims(tcn_inputs.T, axis=0)
             print(self.vae_inputs.shape, tcn_inputs.shape)
@@ -135,7 +143,6 @@ class RolloutProposed:
                 self.arm.set_target_pose(pose=pose_goal, wait=True, target_time=target_time)
             except Exception as e:
                 print(e)
-            self.eef_pose_history.append(self.current_pos)
             
 
         # save data

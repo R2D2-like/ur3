@@ -56,8 +56,8 @@ class RolloutProposed:
         self.eef_pose_history.append(self.current_pos) # (7, 2000)
 
     def ft_callback(self, msg):
-        self.current_ft = np.array([msg.force.x, msg.force.y, msg.force.z, \
-                                msg.torque.x, msg.torque.y, msg.torque.z])
+        self.current_ft = np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, \
+                                msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z])
         self.ft_history.append(self.current_ft) # (6, 2000)
 
 

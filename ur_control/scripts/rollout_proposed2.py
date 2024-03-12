@@ -75,7 +75,7 @@ class RolloutProposed:
     def init_pressing(self):
         self.arm.zero_ft_sensor()
         print('aaaaaaa')
-        self.move_endeffector([0, 0, 0.1, 0, 0, 0], target_time=2)
+        self.move_endeffector([0, 0, 0.01, 0, 0, 0], target_time=2)
         print('bbbbbb')
 
     def output2position(self, normalized_output):

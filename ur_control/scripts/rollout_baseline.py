@@ -30,9 +30,8 @@ class RolloutBaseline:
         rospy.loginfo('Rollout node initialized')
 
     def eef_pose_callback(self, msg):
-        current_pos = np.array([msg.position.x, msg.position.y, msg.position.z, \
+        self.current_pos = np.array([msg.position.x, msg.position.y, msg.position.z, \
                                 msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w])
-        self.eef_pose_history.append(current_pos)
 
     def output2position(self, normalized_output):
         # 正規化された出力をもとの値に戻す
@@ -79,8 +78,10 @@ class RolloutBaseline:
                 self.arm.set_target_pose(pose=pose_goal, wait=True, target_time=target_time)
             except Exception as e:
                 print(e)
+            self.eef_pose_history.append(self.current_pos)
+            
 
-        traj_history = self.eef_pose_history[-2000:] # (2000, 7)
+        traj_history = self.eef_pose_history #[-2000:] # (2000, 7)
         ft_history = self.arm.get_wrench_history(hist_size=2000) # (2000, 6)
         save_dir = self.base_save_dir + 'baseline/result/' 
         if not os.path.exists(save_dir):

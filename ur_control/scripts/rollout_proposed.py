@@ -22,6 +22,7 @@ class RolloutProposed:
         # Subscriber
         self.sub_eef_pose = rospy.Subscriber('/eef_pose', Pose, self.eef_pose_callback)
         self.eef_pose_history = []
+        self.init_eef_position_history = []
 
         self.base_dir = '/root/Research_Internship_at_GVlab/real/'
         stiffness = input('stiffness level (1, 2, 3, 4): ')
@@ -38,9 +39,9 @@ class RolloutProposed:
         rospy.loginfo('Rollout node initialized')
 
     def eef_pose_callback(self, msg):
-        current_pos = np.array([msg.position.x, msg.position.y, msg.position.z, \
+        self.current_pos = np.array([msg.position.x, msg.position.y, msg.position.z, \
                                 msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w])
-        self.eef_pose_history.append(current_pos)
+        self.init_eef_position_history.append(self.current_pos)
 
 
     def move_endeffector(self, deltax, target_time):
@@ -56,7 +57,7 @@ class RolloutProposed:
 
     def init_pressing(self):
         self.arm.zero_ft_sensor()
-        self.move_endeffector([0, 0, 0.01, 0, 0, 0], target_time=1)
+        self.move_endeffector([0, 0, 0, 0, 0, 0], target_time=1)
 
     def output2position(self, normalized_output):
         # 正規化された出力をもとの値に戻す
@@ -82,7 +83,7 @@ class RolloutProposed:
         output = self.lfd(vae_inputs, tcn_inputs)
         output = output.detach().cpu().numpy()
         eef_position = self.output2position(output)
-        return eef_position
+        return eef_position[0] #(3,)
 
 
     def rollout(self):
@@ -90,6 +91,7 @@ class RolloutProposed:
         # initialize motion
         self.init_pressing()
         pred_eef_position_history = []
+        self.eef_pose_history = self.init_eef_position_history
 
         while (rospy.Time.now() - start_time).to_sec() < 20:
             ft_history = self.arm.get_wrench_history(hist_size=100)
@@ -101,21 +103,24 @@ class RolloutProposed:
             print(self.vae_inputs.shape, tcn_inputs.shape)
             next_eef_position = self.predict(torch.tensor(self.vae_inputs).float().to(self.device), torch.tensor(tcn_inputs).float().to(self.device))
             pred_eef_position_history.append(next_eef_position)
+            print('next_eef_position', next_eef_position.shape)
             
-            target_time = 0.01
+            target_time = 0.5
 
-            for i in range(next_eef_position.shape[0]):
-                pose_goal = self.arm.end_effector()
-                pose_goal[0] = next_eef_position[i, 0]
-                pose_goal[1] = next_eef_position[i, 1]
-                pose_goal[2] = next_eef_position[i, 2]
-                try:
-                    self.arm.set_target_pose(pose=pose_goal, wait=True, target_time=target_time)
-                except Exception as e:
-                    print(e)
+            # for i in range(next_eef_position.shape[0]):
+            pose_goal = self.arm.end_effector()
+            pose_goal[0] = next_eef_position[0]
+            pose_goal[1] = next_eef_position[1]
+            pose_goal[2] = next_eef_position[2]
+            try:
+                self.arm.set_target_pose(pose=pose_goal, wait=True, target_time=target_time)
+            except Exception as e:
+                print(e)
+            self.eef_pose_history.append(self.current_pos)
+            
 
         # save data
-        pred_history = next_eef_position[-2000:]
+        pred_history = next_eef_position#[-2000:]
         save_dir = self.base_save_dir + 'proposed/predicted/'
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)

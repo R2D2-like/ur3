@@ -81,16 +81,18 @@ class RolloutProposed:
     def output2position(self, normalized_output):
         # 正規化された出力をもとの値に戻す
         # normalized_output = np.load(self.base_dir + self.save_name) #(2000, 3)
-        normalized_output /= SCALING_FACTOR
+        output = normalized_output/SCALING_FACTOR
         output = normalized_output * (np.array(DEMO_TRAJECTORY_MAX) - np.array(DEMO_TRAJECTORY_MIN)) + np.array(DEMO_TRAJECTORY_MIN)
+        # idx2だけもとの値に戻す
+        output[:,2] = normalized_output[:,2]
         return output
     
     def position2input(self, position):
+        self.last_z = position[-1][2]
         # 位置をモデルの入力に変換
         print(np.array(position).shape, np.array(DEMO_TRAJECTORY_MIN)[:3].shape)
         input = (np.array(position) - np.array(DEMO_TRAJECTORY_MIN)[:3]) / (np.array(DEMO_TRAJECTORY_MAX)[:3] - np.array(DEMO_TRAJECTORY_MIN)[:3])
         input *= SCALING_FACTOR
-        self.last_z = input[-1][2]
         input = input[:,:2]
         return input
     

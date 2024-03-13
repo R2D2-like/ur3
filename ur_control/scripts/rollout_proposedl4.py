@@ -28,11 +28,11 @@ class RolloutProposed:
         self.sub_ft = rospy.Subscriber('/wrench/filtered', WrenchStamped, self.ft_callback)
 
         # first in first out
-        self.eef_pose_history = collections.deque(maxlen=2000)
-        self.ft_history = collections.deque(maxlen=2000)
+        self.eef_pose_history = collections.deque(maxlen=100)
+        self.ft_history = collections.deque(maxlen=100)
         # 0で初期化
-        self.eef_pose_history.extend(np.zeros((2000, 7))) # (2000, 7)
-        self.ft_history.extend(np.zeros((2000, 6))) # (2000, 6)
+        # self.eef_pose_history.extend(np.zeros((2000, 7))) # (2000, 7)
+        # self.ft_history.extend(np.zeros((2000, 6))) # (2000, 6)
 
         self.init_eef_position_history = []
         self.init_ft_history = []
@@ -45,7 +45,7 @@ class RolloutProposed:
 
         self.vae_inputs = np.load(self.base_dir + 'rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge] # normalized
 
-        model_weights_path = self.base_dir + 'model/proposed/proposed_model2.pth'
+        model_weights_path = self.base_dir + 'model/proposed/proposed_model4.pth'
         self.lfd = LfDProposed(tcn_input_size=6, tcn_output_size=7, mlp_output_size=1).to(self.device)
         self.lfd.load_state_dict(torch.load(model_weights_path))
         self.lfd.eval()
@@ -54,7 +54,7 @@ class RolloutProposed:
     def eef_pose_callback(self, msg):
         self.current_pos = np.array([msg.position.x, msg.position.y, msg.position.z, \
                                 msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w])
-        self.eef_pose_history.append(self.current_pos) # (7, 2000)
+        # self.eef_pose_history.append(self.current_pos) # (7, 2000)
 
     def ft_callback(self, msg):
         self.current_ft = np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, \
@@ -88,14 +88,14 @@ class RolloutProposed:
         output[:,2] = normalized_output[:,2]
         return output
     
-    def position2input(self, position):
-        # 位置をモデルの入力に変換
-        print(np.array(position).shape, np.array(DEMO_TRAJECTORY_MIN)[:3].shape)
-        input = (np.array(position) - np.array(DEMO_TRAJECTORY_MIN)[:3]) / (np.array(DEMO_TRAJECTORY_MAX)[:3] - np.array(DEMO_TRAJECTORY_MIN)[:3])
-        input *= SCALING_FACTOR
-        self.last_z = input[-1][2]
-        input = input[:,:2]
-        return input
+    # def position2input(self, position):
+    #     # 位置をモデルの入力に変換
+    #     print(np.array(position).shape, np.array(DEMO_TRAJECTORY_MIN)[:3].shape)
+    #     input = (np.array(position) - np.array(DEMO_TRAJECTORY_MIN)[:3]) / (np.array(DEMO_TRAJECTORY_MAX)[:3] - np.array(DEMO_TRAJECTORY_MIN)[:3])
+    #     input *= SCALING_FACTOR
+    #     self.last_z = input[-1][2]
+    #     input = input[:,:2]
+    #     return input
     
     def ft2input(self, ft):
         # 力覚センサの値をモデルの入力に変換
@@ -106,13 +106,15 @@ class RolloutProposed:
         # inference
         z_diff = self.lfd(vae_inputs, tcn_inputs)
         z_diff = z_diff.detach().cpu().numpy()[0]
-        # 正規化された出力をもとの値に戻す
+        print('z_diff', z_diff)
+        # # 正規化された出力をもとの値に戻す
         z_diff = z_diff/SCALING_FACTOR
         z_diff = z_diff * (np.array(DEMO_Z_DIFF_MAX) - np.array(DEMO_Z_DIFF_MIN)) + np.array(DEMO_Z_DIFF_MIN)
+        print('z_diff', z_diff)
         z = self.last_z + z_diff
-        # 位置に変換
-        z /= SCALING_FACTOR
-        z *= (np.array(DEMO_TRAJECTORY_MAX)[2] - np.array(DEMO_TRAJECTORY_MIN))[2] + np.array(DEMO_TRAJECTORY_MIN)[2]
+        # # 位置に変換
+        # z /= SCALING_FACTOR
+        # z *= (np.array(DEMO_TRAJECTORY_MAX)[2] - np.array(DEMO_TRAJECTORY_MIN))[2] + np.array(DEMO_TRAJECTORY_MIN)[2]
         return z
     
     def predict_eef_position(self):
@@ -142,29 +144,42 @@ class RolloutProposed:
 
     def rollout(self):
         start_time = rospy.Time.now()
+        rospy.sleep(2)
         # initialize motion
         self.init_pressing()
         pred_eef_position_history = []
         # self.eef_pose_history[:,len(self.init_eef_position_history):] = self.init_eef_position_history
         # ft_history = np.zeros_like(6, 2000)
         # ft_history[:,len(self.init_ft_history):] = self.init_ft_history
+        self.eef_pose_history =[]
+        self.eef_ft_history = []
+        self.predicted = []
 
         ee_position = self.predict_eef_position() #(2000, 3)
         print(ee_position.shape)
         target_time = 0.2
         self.last_z = self.current_pos[2]
         for i in range(1500, 2000, 20):
-            print(i)
+            # print(i)
             pose_goal = self.arm.end_effector()
             pose_goal[0] = ee_position[i, 0]
             pose_goal[1] = ee_position[i, 1]
             ft_history = np.array(self.arm.get_wrench_history(hist_size=100))[::20] # (5, 6)
+            # ft_history = np.array(self.ft_history)[::20]
+            print('ft', ft_history.shape)
             ft_history = self.ft2input(ft_history) # (5, 6)
             # (5, 6) -> (6, 5)
             tcn_inputs = np.expand_dims(ft_history.T, axis=0) # (1, 6, 5)
-            print(self.vae_inputs.shape, tcn_inputs.shape)
+            # # print(tcn_inputs.shape)
+            # a = float(input('1:'))
+            # b = float(input('2:'))
+            # c = float(input('3:'))
+            # d = float(input('4:'))
+            # e = float(input('5:'))
+            # tcn_inputs[0][2] = np.array([a,b,c,d,e])
+            # print(self.vae_inputs.shape, tcn_inputs.shape)
             ee_position[i, 2] = self.predict(torch.tensor(self.vae_inputs).float().to(self.device), torch.tensor(tcn_inputs).float().to(self.device))
-            print('next_eef_position', ee_position[i])
+            # print('next_eef_position', ee_position[i])
             self.last_z = self.current_pos[2]
             pose_goal[2] = ee_position[i, 2]
             try:
@@ -172,16 +187,24 @@ class RolloutProposed:
             except Exception as e:
                 print(e)
             self.eef_pose_history.append(self.current_pos)
+            self.eef_ft_history.append(self.current_ft)
 
 
         traj_history = self.eef_pose_history #[-2000:] # (2000, 7)
-        ft_history = self.arm.get_wrench_history(hist_size=2000) # (2000, 6)
-        save_dir = self.base_save_dir + 'baseline/result/' 
+        # ft_history = self.arm.get_wrench_history(hist_size=2000) # (2000, 6)
+        ft_history = self.eef_ft_history
+        save_dir = self.base_save_dir + 'proposed/result/' 
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        save_path = save_dir + self.sponge + '.npz'
+        save_path = save_dir + 'proposed_lowtable_result.npz'
         np.savez(save_path, pose=traj_history, ft=ft_history)
         rospy.loginfo('Data saved at\n' + save_path)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        save_dir = self.base_save_dir + 'proposed/predicted/'
+        save_path = save_dir + 'proposed_lowtable_predicted.npz'
+        np.savez(save_path, eef_position=ee_position[1500::20])
+        print(ee_position.shape)
 
         rospy.loginfo('Rollout completed')
 

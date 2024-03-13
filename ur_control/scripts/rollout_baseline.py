@@ -55,20 +55,22 @@ class RolloutBaseline:
         # inference
         output = model(torch.tensor(data).float().to(device))  # Ensure data is in the correct dtype for the model
         output = output.detach().cpu().numpy()
-        eef_position = self.output2position(output)
+        eef_position = self.output2position(output)#(1,2000,3)
         save_dir = self.base_save_dir + 'baseline/predicted/'
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        np.savez(save_dir + self.sponge + '.npz', eef_position=eef_position)
-        print('Data saved at\n: ', save_dir + self.sponge + '.npz')
+        save_path = save_dir + 'baseline_hightable.npz'
+        np.savez(save_path, eef_position=eef_position[0][1500::20,:]) #(25,3)
+        print('Data saved at\n: ', save_path)
         rospy.loginfo('Inference completed')
         return eef_position[0]  # (2000, 3)
 
     def rollout(self):
+        rospy.sleep(5)
         ee_position = self.predict_eef_position() #(2000, 3)
         print(ee_position.shape)
-        target_time = 0.05
-        for i in range(1500, 2000):
+        target_time = 0.2
+        for i in range(1500, 2000, 20):
             print(i)
             pose_goal = self.arm.end_effector()
             pose_goal[0] = ee_position[i, 0]
@@ -86,7 +88,8 @@ class RolloutBaseline:
         save_dir = self.base_save_dir + 'baseline/result/' 
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        save_path = save_dir + self.sponge + '.npz'
+        # save_path = save_dir + self.sponge + '.npz'
+        save_path = save_dir + 'baseline_hightable.npz'
         np.savez(save_path, pose=traj_history, ft=ft_history)
         rospy.loginfo('Data saved at\n' + save_path)
 

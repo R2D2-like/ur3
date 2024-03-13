@@ -106,6 +106,8 @@ class RolloutProposed:
         output = self.lfd(vae_inputs, tcn_inputs)
         output = output.detach().cpu().numpy()
         output[0][2] += self.last_z
+        print('force',tcn_inputs[0][2][1999])
+        print('diff', output[0][2])
         eef_position = self.output2position(output)
         return eef_position[0] #(3,)
 

@@ -59,7 +59,7 @@ class RolloutBaseline:
         save_dir = self.base_save_dir + 'baseline/predicted/'
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        save_path = save_dir + 'baseline_hightable.npz'
+        save_path = save_dir + 'baseline_black_lowtable.npz'
         np.savez(save_path, eef_position=eef_position[0][1500::20,:]) #(25,3)
         print('Data saved at\n: ', save_path)
         rospy.loginfo('Inference completed')
@@ -89,7 +89,7 @@ class RolloutBaseline:
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         # save_path = save_dir + self.sponge + '.npz'
-        save_path = save_dir + 'baseline_hightable.npz'
+        save_path = save_dir + 'baseline_black_lowtable.npz'
         np.savez(save_path, pose=traj_history, ft=ft_history)
         rospy.loginfo('Data saved at\n' + save_path)
 

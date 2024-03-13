@@ -76,7 +76,7 @@ class RolloutProposed:
     def init_pressing(self):
         self.arm.zero_ft_sensor()
         print('aaaaaaa')
-        self.move_endeffector([0, 0, 0.01, 0, 0, 0], target_time=2)
+        self.move_endeffector([0, 0, 0.01, 0, 0, 0], target_time=1)
         print('bbbbbb')
 
     def output2position(self, normalized_output):
@@ -105,8 +105,10 @@ class RolloutProposed:
     def predict(self, vae_inputs, tcn_inputs):
         # inference
         output = self.lfd(vae_inputs, tcn_inputs)
-        output = output.detach().cpu().numpy()[0]
+        output = output.detach().cpu().numpy()[0]/10
         z = self.last_z + output
+        print('z', z)
+        print('self.last_z', self.last_z)
         # 位置に変換
         z /= SCALING_FACTOR
         z *= (np.array(DEMO_TRAJECTORY_MAX)[2] - np.array(DEMO_TRAJECTORY_MIN))[2] + np.array(DEMO_TRAJECTORY_MIN)[2]
@@ -150,6 +152,10 @@ class RolloutProposed:
         print(ee_position.shape)
         target_time = 0.2
         self.last_z = self.current_pos[2]
+        save_dir = self.base_save_dir + 'proposed/result/' 
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        save_path = save_dir + self.sponge + '.npz'
         for i in range(1500, 2000, 20):
             print(i)
             pose_goal = self.arm.end_effector()
@@ -169,6 +175,7 @@ class RolloutProposed:
             except Exception as e:
                 print(e)
             self.eef_pose_history.append(self.current_pos)
+            np.savez(save_path, pose=ee_position, ft=ft_history)
 
 
         traj_history = self.eef_pose_history #[-2000:] # (2000, 7)

@@ -196,13 +196,13 @@ class RolloutProposed:
         save_dir = self.base_save_dir + 'proposed/result/' 
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        save_path = save_dir + 'proposed_lowtable_result.npz'
+        save_path = save_dir + 'proposed_black_lowtable_result.npz'
         np.savez(save_path, pose=traj_history, ft=ft_history)
         rospy.loginfo('Data saved at\n' + save_path)
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         save_dir = self.base_save_dir + 'proposed/predicted/'
-        save_path = save_dir + 'proposed_lowtable_predicted.npz'
+        save_path = save_dir + 'proposed_black_lowtable_predicted.npz'
         np.savez(save_path, eef_position=ee_position[1500::20])
         print(ee_position.shape)
 

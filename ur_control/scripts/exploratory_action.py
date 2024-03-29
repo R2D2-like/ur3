@@ -19,11 +19,11 @@ class ExploratoryAction:
         self.sponge = 's' + stiffness + 'f' + friction
         rospy.loginfo(self.sponge)
         if mode == '0':
-            self.save_dir = '/root/Research_Internship_at_GVlab/real/step1/data/'
+            self.save_dir = '/root/Research_Internship_at_GVlab/data0313/real/step1/data/'
             trial = input('Trial (1, 2, 3, 4, 5, 6, 7, 8): ')
             self.save_name = self.sponge + '_' + trial + '.npz'
         else:
-            self.save_dir = '/root/Research_Internship_at_GVlab/real/rollout/data/exploratory/'
+            self.save_dir = '/root/Research_Internship_at_GVlab/data0313/real/rollout/data/exploratory/'
             self.save_name = self.sponge + '.npz'
 
         rospy.loginfo('Pressing node initialized')

@@ -8,9 +8,10 @@ import sys
 sys.path.append('/root/Research_Internship_at_GVlab/scripts/config')
 from values import SCALING_FACTOR, DEMO_TRAJECTORY_MIN, DEMO_TRAJECTORY_MAX
 import torch
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, WrenchStamped
 sys.path.append('/root/Research_Internship_at_GVlab/scripts/train/')
 from lfd_baseline import LfDBaseline
+import collections
 
 
 class RolloutBaseline:
@@ -20,18 +21,29 @@ class RolloutBaseline:
 
         # Subscriber
         self.sub_eef_pose = rospy.Subscriber('/eef_pose', Pose, self.eef_pose_callback)
-        self.eef_pose_history = []
+        self.sub_ft = rospy.Subscriber('/wrench/filtered', WrenchStamped, self.ft_callback)
+        # self.eef_pose_history = []
+
+        # first in first out
+        self.eef_pose_history = collections.deque(maxlen=100)
+        self.ft_history = collections.deque(maxlen=100)
 
         self.base_dir = '/root/Research_Internship_at_GVlab/real/'
         stiffness = input('stiffness level (1, 2, 3, 4): ')
         friction = input('friction level (1, 2, 3): ')
         self.sponge = 's' + stiffness + 'f' + friction
-        self.base_save_dir = self.base_dir + 'rollout/data/'
+        self.height = input('low high slope:')
+        self.base_save_dir = '/root/Research_Internship_at_GVlab/data0328/real/rollout/data/'
         rospy.loginfo('Rollout node initialized')
 
     def eef_pose_callback(self, msg):
         self.current_pos = np.array([msg.position.x, msg.position.y, msg.position.z, \
                                 msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w])
+        
+    def ft_callback(self, msg):
+        self.current_ft = np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, \
+                                msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z])
+        self.ft_history.append(self.current_ft) # (6, 2000)
 
     def output2position(self, normalized_output):
         # 正規化された出力をもとの値に戻す
@@ -44,7 +56,7 @@ class RolloutBaseline:
         #device
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # load data
-        data = np.load(self.base_dir + 'rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge]  # normalized
+        data = np.load(self.base_dir + 'rollout/data/exploratory/exploratory_action_preprocessed.npz')['s1f1']  # normalized
         # instantiate the model
         model = LfDBaseline(input_dim=6, output_dim=3, latent_dim=5, hidden_dim=32).to(device)
         # load model weights
@@ -59,17 +71,19 @@ class RolloutBaseline:
         save_dir = self.base_save_dir + 'baseline/predicted/'
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        save_path = save_dir + 'baseline_black_lowtable.npz'
+        save_path = save_dir + self.sponge + '_' + self.height +'.npz'
         np.savez(save_path, eef_position=eef_position[0][1500::20,:]) #(25,3)
         print('Data saved at\n: ', save_path)
         rospy.loginfo('Inference completed')
         return eef_position[0]  # (2000, 3)
 
     def rollout(self):
-        rospy.sleep(5)
+        # rospy.sleep(5)
         ee_position = self.predict_eef_position() #(2000, 3)
         print(ee_position.shape)
-        target_time = 0.2
+        self.eef_pose_history =[]
+        self.eef_ft_history = []
+        target_time = 0.02
         for i in range(1500, 2000, 20):
             print(i)
             pose_goal = self.arm.end_effector()
@@ -81,15 +95,16 @@ class RolloutBaseline:
             except Exception as e:
                 print(e)
             self.eef_pose_history.append(self.current_pos)
+            self.eef_ft_history.append(self.current_ft)
             
 
         traj_history = self.eef_pose_history #[-2000:] # (2000, 7)
-        ft_history = self.arm.get_wrench_history(hist_size=2000) # (2000, 6)
+        ft_history = self.eef_ft_history
         save_dir = self.base_save_dir + 'baseline/result/' 
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         # save_path = save_dir + self.sponge + '.npz'
-        save_path = save_dir + 'baseline_black_lowtable.npz'
+        save_path = save_dir + self.sponge + '_' + self.height +'.npz'
         np.savez(save_path, pose=traj_history, ft=ft_history)
         rospy.loginfo('Data saved at\n' + save_path)
 

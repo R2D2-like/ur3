@@ -37,16 +37,23 @@ class RolloutProposed:
         self.init_eef_position_history = []
         self.init_ft_history = []
 
-        self.base_dir = '/root/Research_Internship_at_GVlab/data0313/real/'
+        self.base_dir = '/root/Research_Internship_at_GVlab/real/'
         stiffness = input('stiffness level (1, 2, 3, 4): ')
         friction = input('friction level (1, 2, 3): ')
         self.sponge = 's' + stiffness + 'f' + friction
-        self.height = input('height (low, high, slope, vertical): ')
-        self.base_save_dir = self.base_dir + 'rollout/data/'
+        self.height = 'vertical'
 
-        self.vae_inputs = np.load('/root/Research_Internship_at_GVlab/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')['s1f1'] # normalized
+        self.base_save_dir = '/root/Research_Internship_at_GVlab/data0328/real/rollout/data/'
 
-        model_weights_path = '/root/Research_Internship_at_GVlab/real/model/proposed/proposed_model4.pth'
+
+
+        if int(stiffness) == 4:
+            self.vae_inputs = np.load('/root/Research_Internship_at_GVlab/data0313/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')['s4f3'] 
+
+        else:
+            self.vae_inputs = np.load('/root/Research_Internship_at_GVlab/data0313/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge] # normalized
+
+        model_weights_path = self.base_dir + 'model/proposed/proposed_model4.pth'
         self.lfd = LfDProposed(tcn_input_size=6, tcn_output_size=7, mlp_output_size=1).to(self.device)
         self.lfd.load_state_dict(torch.load(model_weights_path))
         self.lfd.eval()
@@ -77,8 +84,11 @@ class RolloutProposed:
     def init_pressing(self):
         self.arm.zero_ft_sensor()
         print('aaaaaaa')
-        self.move_endeffector([0, 0, 0, 0, 0, 0], target_time=2)
+        self.move_endeffector([0, 0, 0.01, 0, 0, 0], target_time=20)
         print('bbbbbb')
+        self.move_endeffector([0, 0, 0.01, 0, 0, 0], target_time=2)
+        print('ccccc')
+
 
     def output2position(self, normalized_output):
         # 正規化された出力をもとの値に戻す
@@ -90,7 +100,7 @@ class RolloutProposed:
         return output
     
     # def position2input(self, position):
-    #     # 位置をモデルの入力に変換
+    #     # 位置をモデルの入力に変換rangevertical
     #     print(np.array(position).shape, np.array(DEMO_TRAJECTORY_MIN)[:3].shape)
     #     input = (np.array(position) - np.array(DEMO_TRAJECTORY_MIN)[:3]) / (np.array(DEMO_TRAJECTORY_MAX)[:3] - np.array(DEMO_TRAJECTORY_MIN)[:3])
     #     input *= SCALING_FACTOR
@@ -112,7 +122,8 @@ class RolloutProposed:
         z_diff = z_diff/SCALING_FACTOR
         z_diff = z_diff * (np.array(DEMO_Z_DIFF_MAX) - np.array(DEMO_Z_DIFF_MIN)) + np.array(DEMO_Z_DIFF_MIN)
         print('z_diff', z_diff)
-        z = self.last_z + z_diff
+        print('self.last_z', self.last_z )
+        z = self.last_z - z_diff
         # # 位置に変換
         # z /= SCALING_FACTOR
         # z *= (np.array(DEMO_TRAJECTORY_MAX)[2] - np.array(DEMO_TRAJECTORY_MIN))[2] + np.array(DEMO_TRAJECTORY_MIN)[2]
@@ -122,15 +133,11 @@ class RolloutProposed:
         #device
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # load data
-        data = np.load(self.base_dir + 'rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge]  # normalized
-        data = np.load('/root/Research_Internship_at_GVlab/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')['s1f1'] # normalized
-
+        data = np.load(self.base_dir + 'rollout/data/exploratory/exploratory_action_preprocessed.npz')['s1f1']  # normalized
         # instantiate the model
         model = LfDBaseline(input_dim=6, output_dim=3, latent_dim=5, hidden_dim=32).to(device)
         # load model weights
-        # model_weights_path = self.base_dir + 'model/baseline/baseline_model.pth'
-        model_weights_path ='/root/Research_Internship_at_GVlab/real0328/model/baseline/baseline_model.pth'
-
+        model_weights_path = self.base_dir + 'model/baseline/baseline_model.pth'
         state_dict = torch.load(model_weights_path)
         model.load_state_dict(state_dict, strict=False)  # Load the state dict
         model.eval()  # Now this should work as model is properly instantiated
@@ -144,16 +151,23 @@ class RolloutProposed:
         np.savez(save_dir + self.sponge + '.npz', eef_position=eef_position)
         print('Data saved at\n: ', save_dir + self.sponge + '.npz')
         rospy.loginfo('Inference completed')
-        eef_position = eef_position[0]
-        # eef_position[:,0] *= -1
-        return eef_position  # (2000, 3)
+        return eef_position[0]  # (2000, 3)
 
 
     def rollout(self):
         start_time = rospy.Time.now()
-        rospy.sleep(2)
         # initialize motion
         # self.init_pressing()
+        print(self.current_pos)
+        print('aa')
+        self.arm.zero_ft_sensor()
+        pose_goal = self.arm.end_effector()
+        pose_goal[0] += 0.01
+        print(pose_goal)
+        self.arm.set_target_pose(pose=pose_goal, wait=True, target_time=2)
+        print(self.current_pos)
+        print('b')
+
         pred_eef_position_history = []
         # self.eef_pose_history[:,len(self.init_eef_position_history):] = self.init_eef_position_history
         # ft_history = np.zeros_like(6, 2000)
@@ -165,15 +179,14 @@ class RolloutProposed:
         ee_position = self.predict_eef_position() #(2000, 3)
         print(ee_position.shape)
         target_time = 0.2
-        self.last_z = self.current_pos[2]
-        for i in range(80):
+        self.last_z = self.current_pos[0]
+        current_z = self.current_pos[2] 
+        current_x = self.current_pos[0] 
+        for i in range(1500, 2000, 20):
             # print(i)
-            if i == 2:
-                continue
             pose_goal = self.arm.end_effector()
-            pose_goal[0] = ee_position[i, 0]
-            pose_goal[0] = max(pose_goal[0], 0.695)
-            pose_goal[1] = ee_position[i, 1]
+            pose_goal[2] = current_z
+            # pose_goal[0] = current_x
             ft_history = np.array(self.arm.get_wrench_history(hist_size=100))[::20] # (5, 6)
             # ft_history = np.array(self.ft_history)[::20]
             print('ft', ft_history.shape)
@@ -190,9 +203,10 @@ class RolloutProposed:
             # print(self.vae_inputs.shape, tcn_inputs.shape)
             ee_position[i, 2] = self.predict(torch.tensor(self.vae_inputs).float().to(self.device), torch.tensor(tcn_inputs).float().to(self.device))
             # print('next_eef_position', ee_position[i])
-            self.last_z = self.current_pos[2]
-            pose_goal[2] = ee_position[i, 2]
-            print('pose_goal', pose_goal)
+            self.last_z = self.current_pos[0]
+            pose_goal[1] = ee_position[i, 1]
+            pose_goal[0] = ee_position[i, 2]
+            print(pose_goal)
             try:
                 self.arm.set_target_pose(pose=pose_goal, wait=True, target_time=target_time)
             except Exception as e:
@@ -202,19 +216,21 @@ class RolloutProposed:
 
 
         traj_history = self.eef_pose_history #[-2000:] # (2000, 7)
-        # ft_history = self.arm.get_wrench_history(hist_size=2000) # (2000, 6)
+        ft_history = self.arm.get_wrench_history(hist_size=2000) # (2000, 6)
         ft_history = self.eef_ft_history
         save_dir = self.base_save_dir + 'proposed/result/' 
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        save_path = save_dir + self.sponge +'_'+ self.height +'.npz'
+        save_path = save_dir + self.sponge + '_' + self.height +'.npz'
+
         np.savez(save_path, pose=traj_history, ft=ft_history)
         rospy.loginfo('Data saved at\n' + save_path)
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         save_dir = self.base_save_dir + 'proposed/predicted/'
-        save_path = save_dir + self.sponge +'_'+ self.height +'.npz'
-        np.savez(save_path, eef_position=ee_position)
+        save_path = save_dir + self.sponge + '_' + self.height +'.npz'
+
+        np.savez(save_path, eef_position=ee_position[1500::20])
         print(ee_position.shape)
 
         rospy.loginfo('Rollout completed')

@@ -42,7 +42,7 @@ class Pressing:
         self.arm.set_target_pose(pose=cpose, wait=True, target_time=target_time)
 
     def go_to_initial_pose(self):
-        joint_positions = [1.57, -1.57, 1.57, -1.57, -1.57, 0]
+        joint_positions = [0, -1.57, 2, -1.57, -1.57, 0]
         self.arm.set_joint_positions(positions=joint_positions, wait=True, target_time=0.5)
 
     def pressing(self):
@@ -80,6 +80,7 @@ if __name__ == '__main__':
     pressing = Pressing()
     if is_sim:
         pressing.go_to_initial_pose()
+        exit()
     pressing.pressing()
     pressing.save_data()
     pressing.going_up()

@@ -100,11 +100,15 @@ class RolloutBaseline:
     
     def init_admittance_control(self):
         # 各パラメータを設定
-        inertia = 1.0  # 慣性
-        stiffness = 2.0  # 剛性
-        damper = 0.5  # ダンパー
-        dt = 1  # サンプリング時間
+        inertia = 0.5  # 慣性
+        stiffness = 1.0  # 剛性
+        damper = 15  # ダンパー
+        # inertia = np.array([[6, 0, 0, 0, 0, 0], [0, 6, 0, 0, 0, 0], [0, 0, 6, 0, 0, 0], [0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 0.5]])
+        # damper = np.array([[60, 0, 0, 0, 0, 0], [0, 60, 0, 0, 0, 0], [0, 0, 60, 0, 0, 0], [0, 0, 0, 15, 0, 0], [0, 0, 0, 0, 15, 0], [0, 0, 0, 0, 0, 15]])
+        # stiffness = np.array([[1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0], [0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 1]])
+        dt = 0.2  # サンプリング時間
         method = "traditional"  # 3つのうちの1つを選択
+        # method = "integration"
 
         # admittance modelを作成
         admittance = AdmittanceModel(inertia, stiffness, damper, dt, method)
@@ -113,13 +117,13 @@ class RolloutBaseline:
 
         return admittance
     
-    def impedance_control(self, admittance, pose_goal, fz, kp=0.4):
+    def impedance_control(self, admittance, pose_goal, fz, kp=0.2):
         # print('self.eef_ft_history:', self.eef_ft_history)
         # fz = self.eef_ft_history[-1][2]
         print('fz:', fz)
         deltax = admittance.control(fz)
-        pose_goal[2] -= deltax * kp
         print('deltax:', -deltax*kp)
+        pose_goal[2] -= deltax * kp
 
         return pose_goal
 

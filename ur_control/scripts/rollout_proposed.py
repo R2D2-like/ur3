@@ -42,11 +42,15 @@ class RolloutProposed:
         friction = input('friction level (1, 2, 3): ')
         self.sponge = 's' + stiffness + 'f' + friction
         self.height = input('low high slope:')
+        # self.kp = float(input('kp :'))
+        self.kp = 1
+        self.last_diff_z = 0
 
         self.base_save_dir = '/root/Research_Internship_at_GVlab/data0328/real/rollout/data/'
 
-        if int(stiffness) == 4:
-            self.vae_inputs = np.load('/root/Research_Internship_at_GVlab/data0313/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')['s4f3'] 
+        if self.sponge == 's0f0':
+            self.sponge = 's0f0'
+            self.vae_inputs = np.load('/root/Research_Internship_at_GVlab/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')['s1f1'] 
 
         else:
             self.vae_inputs = np.load('/root/Research_Internship_at_GVlab/data0313/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge] # normalized
@@ -82,7 +86,7 @@ class RolloutProposed:
     def init_pressing(self):
         self.arm.zero_ft_sensor()
         print('aaaaaaa')
-        self.move_endeffector([0, 0, 0.01, 0, 0, 0], target_time=2)
+        self.move_endeffector([0, 0, 0.015, 0, 0, 0], target_time=2)
         print('bbbbbb')
 
     def output2position(self, normalized_output):
@@ -117,7 +121,11 @@ class RolloutProposed:
         z_diff = z_diff/SCALING_FACTOR
         z_diff = z_diff * (np.array(DEMO_Z_DIFF_MAX) - np.array(DEMO_Z_DIFF_MIN)) + np.array(DEMO_Z_DIFF_MIN)
         print('z_diff', z_diff)
-        z = self.last_z + z_diff
+        z =self.last_z + z_diff * self.kp
+        # z = max(z, -0.034)
+
+        # z += (z-self.last_diff_z)*self.kp
+        # self.last_diff_z = z
         # # 位置に変換
         # z /= SCALING_FACTOR
         # z *= (np.array(DEMO_TRAJECTORY_MAX)[2] - np.array(DEMO_TRAJECTORY_MIN))[2] + np.array(DEMO_TRAJECTORY_MIN)[2]
@@ -144,7 +152,7 @@ class RolloutProposed:
         save_dir = self.base_save_dir + 'proposed/predicted/'
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        np.savez(save_dir + self.sponge + '.npz', eef_position=eef_position)
+        np.savez(save_dir + self.sponge + '_kp.npz', eef_position=eef_position)
         print('Data saved at\n: ', save_dir + self.sponge + '.npz')
         rospy.loginfo('Inference completed')
         return eef_position[0]  # (2000, 3)
@@ -205,6 +213,7 @@ class RolloutProposed:
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         save_path = save_dir + self.sponge + '_' + self.height +'.npz'
+        # save_path = save_dir + self.sponge + '_' + self.height +'_kp{}.npz'.format(self.kp)
 
         np.savez(save_path, pose=traj_history, ft=ft_history)
         rospy.loginfo('Data saved at\n' + save_path)
@@ -212,6 +221,7 @@ class RolloutProposed:
             os.makedirs(save_dir)
         save_dir = self.base_save_dir + 'proposed/predicted/'
         save_path = save_dir + self.sponge + '_' + self.height +'.npz'
+        # save_path = save_dir + self.sponge + '_' + self.height +'_kp{}.npz'.format(self.kp)
 
         np.savez(save_path, eef_position=ee_position[1500::20])
         print(ee_position[1500::20].shape)

@@ -41,17 +41,18 @@ class RolloutProposed:
         stiffness = input('stiffness level (1, 2, 3, 4): ')
         friction = input('friction level (1, 2, 3): ')
         self.sponge = 's' + stiffness + 'f' + friction
-        self.height = 'vertical'
+        self.height = 'vertical_normal3'
 
         self.base_save_dir = '/root/Research_Internship_at_GVlab/data0328/real/rollout/data/'
 
 
 
-        if int(stiffness) == 4:
-            self.vae_inputs = np.load('/root/Research_Internship_at_GVlab/data0313/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')['s4f3'] 
+        if self.sponge == 's0f0':
+            self.sponge = 's0f0'
+            self.vae_inputs = np.load('/root/Research_Internship_at_GVlab/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')['s1f1'] 
 
         else:
-            self.vae_inputs = np.load('/root/Research_Internship_at_GVlab/data0313/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge] # normalized
+            self.vae_inputs = np.load('/root/Research_Internship_at_GVlab/data0313/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')['s2f1'] # normalized
 
         model_weights_path = self.base_dir + 'model/proposed/proposed_model4.pth'
         self.lfd = LfDProposed(tcn_input_size=6, tcn_output_size=7, mlp_output_size=1).to(self.device)
@@ -127,7 +128,7 @@ class RolloutProposed:
         # # 位置に変換
         # z /= SCALING_FACTOR
         # z *= (np.array(DEMO_TRAJECTORY_MAX)[2] - np.array(DEMO_TRAJECTORY_MIN))[2] + np.array(DEMO_TRAJECTORY_MIN)[2]
-        return z
+        return min(z, 0.87)
     
     def predict_eef_position(self):
         #device

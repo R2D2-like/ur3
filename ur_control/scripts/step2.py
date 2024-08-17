@@ -17,7 +17,7 @@ class Step2:
         self.eef_pose_history = []
 
         self.data = None
-        self.save_dir = '/root/Research_Internship_at_GVlab/real/step2/data/'
+        self.save_dir = '/root/Research_Internship_at_GVlab/data0404/real/step2/data/'
         stiffness = input('stiffness level (1, 2, 3, 4): ')
         friction = input('friction level (1, 2, 3): ')
         self.save_name = 's' + stiffness + 'f' + friction
@@ -55,14 +55,14 @@ class Step2:
                 self.data = self.arm.end_effector()
             else:
                 self.data = np.vstack((self.data, self.arm.end_effector()))
-            if self.data.shape[0] >= 2000:
-                ft_data = self.arm.get_wrench_history(hist_size=2000)
+            if self.data.shape[0] >= 2400:
+                ft_data = self.arm.get_wrench_history(hist_size=2400)
                 break
             rate.sleep()
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
-        traj_history = self.eef_pose_history[-2000:] # (2000, 7)
-        ft_history = self.arm.get_wrench_history(hist_size=2000) # (2000, 6)
+        traj_history = self.eef_pose_history[-2400:] # (2000, 7)
+        ft_history = self.arm.get_wrench_history(hist_size=2400) # (2000, 6)
         # ft_history = self.filter(ft_history)
         save_path = self.save_dir + self.save_name + '_' + self.trial + '.npz'
         np.savez(save_path, pose=traj_history, ft=ft_history)

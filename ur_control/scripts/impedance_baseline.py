@@ -14,7 +14,7 @@ sys.path.append('/root/Research_Internship_at_GVlab/scripts/train/')
 from lfd_baseline import LfDBaseline
 import collections
 from ur_control import transformations
-
+from std_srvs.srv import Empty
 
 class RolloutBaseline:
     def __init__(self) -> None:
@@ -50,7 +50,9 @@ class RolloutBaseline:
     def init_pressing(self):
         self.arm.zero_ft_sensor()
         print('aaaaaaa')
-        self.move_endeffector([0, 0, 0.015, 0, 0, 0], target_time=2)
+        self.move_endeffector([0, 0, 0.01, 0, 0, 0], target_time=2)
+        # res = rospy.ServiceProxy('/wrench/filtered/zero_ftsensor', Empty)
+        self.offset_fz = np.array(self.arm.get_wrench_history(hist_size=100))[::20][-1][2]
         print('bbbbbb')
 
     def output2position(self, normalized_output):
@@ -101,8 +103,8 @@ class RolloutBaseline:
     def init_admittance_control(self):
         # 各パラメータを設定
         inertia = 0.5  # 慣性
-        stiffness = 1.0  # 剛性
-        damper = 15  # ダンパー
+        stiffness = 15#1.0  # 剛性
+        damper = 5#15  # ダンパー
         # inertia = np.array([[6, 0, 0, 0, 0, 0], [0, 6, 0, 0, 0, 0], [0, 0, 6, 0, 0, 0], [0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 0.5]])
         # damper = np.array([[60, 0, 0, 0, 0, 0], [0, 60, 0, 0, 0, 0], [0, 0, 60, 0, 0, 0], [0, 0, 0, 15, 0, 0], [0, 0, 0, 0, 15, 0], [0, 0, 0, 0, 0, 15]])
         # stiffness = np.array([[1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0], [0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 1]])
@@ -117,13 +119,16 @@ class RolloutBaseline:
 
         return admittance
     
-    def impedance_control(self, admittance, pose_goal, fz, kp=0.2):
+    # def impedance_control(self, admittance, pose_goal, fz, kp=0.0001):
+    def impedance_control(self, admittance, pose_goal, fz, kp=0.01):
         # print('self.eef_ft_history:', self.eef_ft_history)
         # fz = self.eef_ft_history[-1][2]
         print('fz:', fz)
         deltax = admittance.control(fz)
         print('deltax:', -deltax*kp)
-        pose_goal[2] -= deltax * kp
+        # pose_goal[2] -= deltax * kp
+        pose_goal[2] = self.last_z - deltax * kp
+        print('z', pose_goal[2])
 
         return pose_goal
 
@@ -136,14 +141,20 @@ class RolloutBaseline:
         self.eef_ft_history = []
         target_time = 0.02
         admittance = self.init_admittance_control()
+        self.last_z = self.current_pos[2]
+
         for i in range(1500, 2000, 20):
             print(i)
             pose_goal = self.arm.end_effector()
             pose_goal[0] = ee_position[i, 0]
             pose_goal[1] = ee_position[i, 1]
             # pose_goal[2] = ee_position[i, 2]
-            fz = np.array(self.arm.get_wrench_history(hist_size=100))[::20][-1][2]
+            pose_goal[2] = self.last_z
+            print('self.last_z',self.last_z)
+            print('pose_goal[2]', pose_goal[2])
+            fz = np.array(self.arm.get_wrench_history(hist_size=100))[::20][-1][2] - self.offset_fz
             pose_goal = self.impedance_control(admittance, pose_goal, fz)
+            self.last_z = self.current_pos[2]
 
             try:
                 self.arm.set_target_pose(pose=pose_goal, wait=True, target_time=target_time)
@@ -154,7 +165,7 @@ class RolloutBaseline:
             
 
         traj_history = self.eef_pose_history #[-2000:] # (2000, 7)
-        ft_history = self.eef_ft_history
+        ft_history = self.eef_ft_history 
         save_dir = self.base_save_dir + 'baseline/impedance/result/' 
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
@@ -162,6 +173,8 @@ class RolloutBaseline:
         save_path = save_dir + self.sponge + '_' + self.height +'.npz'
         np.savez(save_path, pose=traj_history, ft=ft_history)
         rospy.loginfo('Data saved at\n' + save_path)
+        # res = rospy.ServiceProxy('/wrench/filtered/zero_ftsensor', Empty)
+
 
         rospy.loginfo('Rollout completed')
 

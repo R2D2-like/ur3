@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from ur_control.arm import Arm
-from ur_control.impedance_control import AdmittanceModel
 import rospy
 import numpy as np
 import os
@@ -13,7 +12,6 @@ from geometry_msgs.msg import Pose, WrenchStamped
 sys.path.append('/root/Research_Internship_at_GVlab/scripts/train/')
 from lfd_baseline import LfDBaseline
 import collections
-from ur_control import transformations
 
 
 class RolloutBaseline:
@@ -34,8 +32,8 @@ class RolloutBaseline:
         stiffness = input('stiffness level (1, 2, 3, 4): ')
         friction = input('friction level (1, 2, 3): ')
         self.sponge = 's' + stiffness + 'f' + friction
-        self.height = 'vertical'
-        self.base_save_dir = '/root/Research_Internship_at_GVlab/data0328/real/rollout/data/'
+        self.height = input('low high slope:')
+        self.base_save_dir = '/root/Research_Internship_at_GVlab/data0402/real/rollout/data/normal/'
         rospy.loginfo('Rollout node initialized')
 
     def eef_pose_callback(self, msg):
@@ -46,14 +44,6 @@ class RolloutBaseline:
         self.current_ft = np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, \
                                 msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z])
         self.ft_history.append(self.current_ft) # (6, 2000)
-
-    def init_pressing(self):
-        self.arm.zero_ft_sensor()
-        print('aaaaaaa')
-        self.move_endeffector([0.015, 0, 0, 0, 0, 0], target_time=2)
-        self.offset_fz = np.array(self.arm.get_wrench_history(hist_size=100))[::20][-1][2]
-
-        print('bbbbbb')
 
     def output2position(self, normalized_output):
         # 正規化された出力をもとの値に戻す
@@ -80,80 +70,29 @@ class RolloutBaseline:
         output = model(torch.tensor(data).float().to(device))  # Ensure data is in the correct dtype for the model
         output = output.detach().cpu().numpy()
         eef_position = self.output2position(output)#(1,2000,3)
-        save_dir = self.base_save_dir + 'baseline/impedance/predicted/'
+        save_dir = self.base_save_dir + 'baseline/predicted/'
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
+        # save_path = save_dir + 'normal_25.npz'
         save_path = save_dir + self.sponge + '_' + self.height +'.npz'
-        np.savez(save_path, eef_position=eef_position[0][1500::20,:]) #(25,3)
+        np.savez(save_path, eef_position=eef_position[0][1500:1980:6,:])#[1500::20,:])#[1500:1980:6,:]) #(25,3)
         print('Data saved at\n: ', save_path)
         rospy.loginfo('Inference completed')
         return eef_position[0]  # (2000, 3)
-    
-    def move_endeffector(self, deltax, target_time):
-        # get current position of the end effector
-        cpose = self.arm.end_effector()
-        # define the desired translation/rotation
-        deltax = np.array(deltax)
-        # add translation/rotation to current position
-        cpose = transformations.transform_pose(cpose, deltax, rotated_frame=True)
-        # execute desired new pose
-        # may fail if IK solution is not found
-        self.arm.set_target_pose(pose=cpose, wait=True, target_time=target_time)
-    
-    def init_admittance_control(self):
-        # 各パラメータを設定
-        inertia = 0.5  # 慣性
-        stiffness = 15  # 剛性
-        damper = 5  # ダンパー
-        # inertia = np.array([[6, 0, 0, 0, 0, 0], [0, 6, 0, 0, 0, 0], [0, 0, 6, 0, 0, 0], [0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 0.5]])
-        # damper = np.array([[60, 0, 0, 0, 0, 0], [0, 60, 0, 0, 0, 0], [0, 0, 60, 0, 0, 0], [0, 0, 0, 15, 0, 0], [0, 0, 0, 0, 15, 0], [0, 0, 0, 0, 0, 15]])
-        # stiffness = np.array([[1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0], [0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 1]])
-        dt = 0.2  # サンプリング時間
-        method = "traditional"  # 3つのうちの1つを選択
-        # method = "integration"
-
-        # admittance modelを作成
-        admittance = AdmittanceModel(inertia, stiffness, damper, dt, method)
-        # admittance modelをリセット
-        admittance.reset()
-
-        return admittance
-    
-    def impedance_control(self, admittance, pose_goal, fz, kp=0.01):
-        # print('self.eef_ft_history:', self.eef_ft_history)
-        # fz = self.eef_ft_history[-1][2]
-        print('fz:', fz)
-        deltax = admittance.control(fz)
-        print('deltax:', deltax*kp)
-        pose_goal[0] = self.last_z + deltax * kp
-
-        return pose_goal
 
     def rollout(self):
         # rospy.sleep(5)
         ee_position = self.predict_eef_position() #(2000, 3)
         print(ee_position.shape)
-        self.init_pressing()
         self.eef_pose_history =[]
         self.eef_ft_history = []
         target_time = 0.02
-        current_z = self.current_pos[2] 
-
-        admittance = self.init_admittance_control()
-        self.last_z = self.current_pos[0]
-
-        for i in range(1500, 2000, 20):
+        for i in range(1500, 1980, 6):
             print(i)
             pose_goal = self.arm.end_effector()
-            # self.last_z = self.current_pos[0]
-            pose_goal[2] = current_z
+            pose_goal[0] = ee_position[i, 0]
             pose_goal[1] = ee_position[i, 1]
-            pose_goal[0] = self.last_z
-            # pose_goal[2] = ee_position[i, 2]
-            fz = np.array(self.arm.get_wrench_history(hist_size=100))[::20][-1][2] - self.offset_fz
-            pose_goal = self.impedance_control(admittance, pose_goal, fz)
-            self.last_z = self.current_pos[0]
-
+            pose_goal[2] = ee_position[i, 2]
             try:
                 self.arm.set_target_pose(pose=pose_goal, wait=True, target_time=target_time)
             except Exception as e:
@@ -164,7 +103,7 @@ class RolloutBaseline:
 
         traj_history = self.eef_pose_history #[-2000:] # (2000, 7)
         ft_history = self.eef_ft_history
-        save_dir = self.base_save_dir + 'baseline/impedance/result/' 
+        save_dir = self.base_save_dir + 'baseline/result/' 
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         # save_path = save_dir + self.sponge + '.npz'

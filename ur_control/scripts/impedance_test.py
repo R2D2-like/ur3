@@ -31,12 +31,6 @@ class RolloutBaseline:
         self.ft_history = collections.deque(maxlen=100)
 
         self.base_dir = '/root/Research_Internship_at_GVlab/real/'
-        stiffness = input('stiffness level (1, 2, 3, 4): ')
-        friction = input('friction level (1, 2, 3): ')
-        self.sponge = 's' + stiffness + 'f' + friction
-        self.height = 'vertical'
-        self.base_save_dir = '/root/Research_Internship_at_GVlab/data0328/real/rollout/data/'
-        rospy.loginfo('Rollout node initialized')
 
     def eef_pose_callback(self, msg):
         self.current_pos = np.array([msg.position.x, msg.position.y, msg.position.z, \
@@ -50,9 +44,7 @@ class RolloutBaseline:
     def init_pressing(self):
         self.arm.zero_ft_sensor()
         print('aaaaaaa')
-        self.move_endeffector([0.015, 0, 0, 0, 0, 0], target_time=2)
-        self.offset_fz = np.array(self.arm.get_wrench_history(hist_size=100))[::20][-1][2]
-
+        self.move_endeffector([0, 0, 0.01, 0, 0, 0], target_time=2)
         print('bbbbbb')
 
     def output2position(self, normalized_output):
@@ -62,32 +54,6 @@ class RolloutBaseline:
         output = normalized_output * (np.array(DEMO_TRAJECTORY_MAX) - np.array(DEMO_TRAJECTORY_MIN)) + np.array(DEMO_TRAJECTORY_MIN)
         return output
     
-    def predict_eef_position(self):
-        #device
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # load data
-        data = np.load(self.base_dir + 'rollout/data/exploratory/exploratory_action_preprocessed.npz')['s1f1']  # normalized
-        # data = np.load('/root/Research_Internship_at_GVlab/data0402/real/step1/data/exploratory_action_preprocessed.npz')[self.sponge]  # normalized
-
-        # instantiate the model
-        model = LfDBaseline(input_dim=6, output_dim=3, latent_dim=5, hidden_dim=32).to(device)
-        # load model weights
-        model_weights_path = self.base_dir + 'model/baseline/baseline_model.pth'
-        state_dict = torch.load(model_weights_path)
-        model.load_state_dict(state_dict, strict=False)  # Load the state dict
-        model.eval()  # Now this should work as model is properly instantiated
-        # inference
-        output = model(torch.tensor(data).float().to(device))  # Ensure data is in the correct dtype for the model
-        output = output.detach().cpu().numpy()
-        eef_position = self.output2position(output)#(1,2000,3)
-        save_dir = self.base_save_dir + 'baseline/impedance/predicted/'
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-        save_path = save_dir + self.sponge + '_' + self.height +'.npz'
-        np.savez(save_path, eef_position=eef_position[0][1500::20,:]) #(25,3)
-        print('Data saved at\n: ', save_path)
-        rospy.loginfo('Inference completed')
-        return eef_position[0]  # (2000, 3)
     
     def move_endeffector(self, deltax, target_time):
         # get current position of the end effector
@@ -103,8 +69,8 @@ class RolloutBaseline:
     def init_admittance_control(self):
         # 各パラメータを設定
         inertia = 0.5  # 慣性
-        stiffness = 15  # 剛性
-        damper = 5  # ダンパー
+        stiffness = 15.0  # 剛性
+        damper = 5#15  # ダンパー
         # inertia = np.array([[6, 0, 0, 0, 0, 0], [0, 6, 0, 0, 0, 0], [0, 0, 6, 0, 0, 0], [0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 0.5]])
         # damper = np.array([[60, 0, 0, 0, 0, 0], [0, 60, 0, 0, 0, 0], [0, 0, 60, 0, 0, 0], [0, 0, 0, 15, 0, 0], [0, 0, 0, 0, 15, 0], [0, 0, 0, 0, 0, 15]])
         # stiffness = np.array([[1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0], [0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 1]])
@@ -124,35 +90,31 @@ class RolloutBaseline:
         # fz = self.eef_ft_history[-1][2]
         print('fz:', fz)
         deltax = admittance.control(fz)
-        print('deltax:', deltax*kp)
-        pose_goal[0] = self.last_z + deltax * kp
+        print('deltax:', -deltax*kp)
+        pose_goal[2] -= deltax * kp
+        print('z', pose_goal[2])
 
         return pose_goal
 
     def rollout(self):
-        # rospy.sleep(5)
-        ee_position = self.predict_eef_position() #(2000, 3)
-        print(ee_position.shape)
-        self.init_pressing()
+        rospy.sleep(1)
+        # self.init_pressing()
         self.eef_pose_history =[]
         self.eef_ft_history = []
         target_time = 0.02
+        current_x = self.current_pos[0] 
+        current_y = self.current_pos[1] 
         current_z = self.current_pos[2] 
 
         admittance = self.init_admittance_control()
-        self.last_z = self.current_pos[0]
-
-        for i in range(1500, 2000, 20):
+        for i in range(1500, 10000, 20):
             print(i)
             pose_goal = self.arm.end_effector()
-            # self.last_z = self.current_pos[0]
-            pose_goal[2] = current_z
-            pose_goal[1] = ee_position[i, 1]
-            pose_goal[0] = self.last_z
-            # pose_goal[2] = ee_position[i, 2]
-            fz = np.array(self.arm.get_wrench_history(hist_size=100))[::20][-1][2] - self.offset_fz
+            pose_goal[0] = current_x
+            pose_goal[1] = current_y
+            pose_goal[2] = self.current_pos[2] 
+            fz = np.array(self.arm.get_wrench_history(hist_size=100))[::20][-1][2]
             pose_goal = self.impedance_control(admittance, pose_goal, fz)
-            self.last_z = self.current_pos[0]
 
             try:
                 self.arm.set_target_pose(pose=pose_goal, wait=True, target_time=target_time)
@@ -162,17 +124,7 @@ class RolloutBaseline:
             self.eef_ft_history.append(self.current_ft)
             
 
-        traj_history = self.eef_pose_history #[-2000:] # (2000, 7)
-        ft_history = self.eef_ft_history
-        save_dir = self.base_save_dir + 'baseline/impedance/result/' 
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-        # save_path = save_dir + self.sponge + '.npz'
-        save_path = save_dir + self.sponge + '_' + self.height +'.npz'
-        np.savez(save_path, pose=traj_history, ft=ft_history)
-        rospy.loginfo('Data saved at\n' + save_path)
-
-        rospy.loginfo('Rollout completed')
+        rospy.loginfo('Impedance control test completed')
 
 if __name__ == '__main__':
     rollout_baseline = RolloutBaseline()

@@ -37,21 +37,21 @@ class RolloutProposed:
         self.init_eef_position_history = []
         self.init_ft_history = []
 
-        self.base_dir = '/root/Research_Internship_at_GVlab/data0402/real/'
+        self.base_dir = '/root/Research_Internship_at_GVlab/real/'
         stiffness = input('stiffness level (1, 2, 3, 4): ')
         friction = input('friction level (1, 2, 3): ')
         self.sponge = 's' + stiffness + 'f' + friction
         self.height = input('low high slope:')
 
-        self.base_save_dir = '/root/Research_Internship_at_GVlab/data0402/real/rollout/data/'
+        self.base_save_dir = '/root/Research_Internship_at_GVlab/data0328/real/rollout/data/test/'
 
         if int(stiffness) == 4:
-            self.vae_inputs = np.load('/root/Research_Internship_at_GVlab/data0402/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')['s4f3'] 
+            self.vae_inputs = np.load('/root/Research_Internship_at_GVlab/data0313/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')['s4f3'] 
 
         else:
-            self.vae_inputs = np.load('/root/Research_Internship_at_GVlab/data0402/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge] # normalized
+            self.vae_inputs = np.load('/root/Research_Internship_at_GVlab/data0313/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge] # normalized
 
-        model_weights_path = self.base_dir + 'model/proposed/proposed_model4.pth'
+        model_weights_path ='/root/Research_Internship_at_GVlab/data0313/real/model/proposed/proposed_model4.pth'
         self.lfd = LfDProposed(tcn_input_size=6, tcn_output_size=7, mlp_output_size=1).to(self.device)
         self.lfd.load_state_dict(torch.load(model_weights_path))
         self.lfd.eval()
@@ -89,7 +89,7 @@ class RolloutProposed:
         # 正規化された出力をもとの値に戻す
         # normalized_output = np.load(self.base_dir + self.save_name) #(2000, 3)
         output = normalized_output/SCALING_FACTOR
-        output = output * (np.array(DEMO_TRAJECTORY_MAX) - np.array(DEMO_TRAJECTORY_MIN)) + np.array(DEMO_TRAJECTORY_MIN)
+        output = normalized_output * (np.array(DEMO_TRAJECTORY_MAX) - np.array(DEMO_TRAJECTORY_MIN)) + np.array(DEMO_TRAJECTORY_MIN)
         # idx2だけもとの値に戻す
         output[:,2] = normalized_output[:,2]
         return output
@@ -127,7 +127,7 @@ class RolloutProposed:
         #device
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # load data
-        data = np.load(self.base_dir + 'rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge]  # normalized
+        data = np.load('/root/Research_Internship_at_GVlab/data0313/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')['s1f1']  # normalized
         # data = np.load('/root/Research_Internship_at_GVlab/data0313/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge] # normalized
 
         # instantiate the model
@@ -144,16 +144,15 @@ class RolloutProposed:
         save_dir = self.base_save_dir + 'proposed/predicted/'
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        save_path = save_dir + self.sponge + '_' + self.height +'.npz'
-        np.savez(save_path, eef_position=eef_position[0])#[1500::20,:]) #(25,3)
-        print('Data saved at\n: ', save_path)
+        np.savez(save_dir + self.sponge + '.npz', eef_position=eef_position)
+        print('Data saved at\n: ', save_dir + self.sponge + '.npz')
         rospy.loginfo('Inference completed')
         return eef_position[0]  # (2000, 3)
 
 
     def rollout(self):
         start_time = rospy.Time.now()
-        # rospy.sleep(2)
+        rospy.sleep(2)
         # initialize motion
         self.init_pressing()
         pred_eef_position_history = []
@@ -168,7 +167,7 @@ class RolloutProposed:
         print(ee_position.shape)
         target_time = 0.2
         self.last_z = self.current_pos[2]
-        for i in range(ee_position.shape[0]):
+        for i in range(1500, 2000, 20):
             # print(i)
             pose_goal = self.arm.end_effector()
             pose_goal[0] = ee_position[i, 0]

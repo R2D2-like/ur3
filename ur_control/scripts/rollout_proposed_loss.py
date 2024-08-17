@@ -52,7 +52,7 @@ class RolloutProposed:
             self.vae_inputs = np.load('/root/Research_Internship_at_GVlab/data0403/real/rollout/data/exploratory/exploratory_action_preprocessed.npz')[self.sponge] # normalized
 
         model_weights_path = self.base_dir + 'model/proposed/proposed_model_loss.pth'
-        self.lfd = LfDProposed(tcn_input_size=6, tcn_output_size=7, mlp_output_size=1).to(self.device)
+        self.lfd = LfDProposed(tcn_input_size=6, tcn_output_size=7, mlp_output_size=2).to(self.device)
         self.lfd.load_state_dict(torch.load(model_weights_path))
         self.lfd.eval()
         rospy.loginfo('Rollout node initialized')

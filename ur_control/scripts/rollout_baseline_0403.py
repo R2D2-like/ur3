@@ -22,7 +22,6 @@ class RolloutBaseline:
         # Subscriber
         self.sub_eef_pose = rospy.Subscriber('/eef_pose', Pose, self.eef_pose_callback)
         self.sub_ft = rospy.Subscriber('/wrench/filtered', WrenchStamped, self.ft_callback)
-        # self.eef_pose_history = []
 
         # first in first out
         self.eef_pose_history = collections.deque(maxlen=100)

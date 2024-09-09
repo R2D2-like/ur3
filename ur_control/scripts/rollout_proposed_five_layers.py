@@ -38,8 +38,8 @@ class RolloutProposed:
         self.init_ft_history = []
 
         self.base_dir = '/root/Research_Internship_at_GVlab/real/'
-        stiffness = input('stiffness level (1, 2, 3, 4): ')
-        friction = input('friction level (1, 2, 3): ')
+        stiffness = input('stiffness level (0, 1, 2, 3): ')
+        friction = input('friction level (0, 1, 2, 3): ')
         self.sponge = 's' + stiffness + 'f' + friction
         self.height = input('low high slope:')
         # self.kp = float(input('kp :'))

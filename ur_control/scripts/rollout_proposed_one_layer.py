@@ -209,7 +209,7 @@ class RolloutProposed:
         traj_history = self.eef_pose_history #[-2000:] # (2000, 7)
         # ft_history = self.arm.get_wrench_history(hist_size=2000) # (2000, 6)
         ft_history = self.eef_ft_history
-        save_dir = self.base_save_dir + 'proposed/result/onelayer/' 
+        save_dir = self.base_save_dir + 'proposed/result/one_layer/' 
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         save_path = save_dir + self.sponge + '_' + self.height +'.npz'
@@ -219,7 +219,7 @@ class RolloutProposed:
         rospy.loginfo('Data saved at\n' + save_path)
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        save_dir = self.base_save_dir + 'proposed/predicted/onelayer/'
+        save_dir = self.base_save_dir + 'proposed/predicted/one_layer/'
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         save_path = save_dir + self.sponge + '_' + self.height +'.npz'
